@@ -1,0 +1,44 @@
+version: '3.8'
+
+services:
+  voiceprint-api:
+    build: .
+    container_name: voiceprint-analysis-api
+    ports:
+      - "8001:8001"
+    environment:
+      - ENVIRONMENT=production
+      - API_HOST=0.0.0.0
+      - API_PORT=8001
+      - MONGODB_URI=mongodb://mongodb:27017/voiceprint_db
+      - USE_GPU=false
+    volumes:
+      - ./Voice dataset - senath:/app/Voice dataset - senath:ro
+      - ./models:/app/models
+      - ./logs:/app/logs
+    depends_on:
+      - mongodb
+    restart: unless-stopped
+    networks:
+      - voiceprint-network
+
+  mongodb:
+    image: mongo:6.0
+    container_name: voiceprint-mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb-data:/data/db
+    environment:
+      - MONGO_INITDB_DATABASE=voiceprint_db
+    restart: unless-stopped
+    networks:
+      - voiceprint-network
+
+volumes:
+  mongodb-data:
+
+networks:
+  voiceprint-network:
+    driver: bridge
+

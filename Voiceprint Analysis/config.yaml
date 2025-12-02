@@ -1,0 +1,102 @@
+# Voiceprint Analysis Configuration
+
+# Model Configuration
+model:
+  type: "ecapa_tdnn"  # Options: ecapa_tdnn, wavlm
+  embedding_dim: 192
+  pretrained: true
+  checkpoint_path: "models/checkpoints/ecapa_tdnn_voxceleb.ckpt"
+  
+# Audio Processing
+audio:
+  sample_rate: 16000
+  window_duration: 2.5  # seconds (2-3 second windows)
+  window_overlap: 0.5   # 50% overlap
+  min_duration: 1.0     # minimum audio duration
+  max_duration: 10.0    # maximum audio duration
+  vad_enabled: true     # Voice Activity Detection
+  noise_reduction: true
+  
+# Speaker Verification
+verification:
+  similarity_metric: "cosine"  # cosine, euclidean
+  threshold: 0.65              # Verification threshold (adjustable)
+  eer_target: 0.03             # Target EER < 3%
+  max_latency_ms: 800          # Maximum latency per window
+  enrollment_samples: 3        # Minimum samples for enrollment
+  few_shot_samples: 2          # Few-shot learning samples
+  
+# Anti-Spoofing
+anti_spoofing:
+  enabled: true
+  model_path: "models/anti_spoofing/asvspoof2021.ckpt"
+  threshold: 0.5
+  detect_replay: true
+  detect_synthetic: true
+  detect_voice_cloning: true
+  
+# Security
+security:
+  tls_version: "1.3"
+  encrypt_embeddings: true
+  store_raw_audio: false        # Never store raw audio
+  embedding_encryption_key_env: "EMBEDDING_ENCRYPTION_KEY"
+  jwt_secret_env: "JWT_SECRET"
+  jwt_algorithm: "HS256"
+  jwt_expiry_hours: 24
+  
+# Database
+database:
+  type: "mongodb"
+  host: "localhost"
+  port: 27017
+  name: "voiceprint_db"
+  collections:
+    enrollments: "speaker_enrollments"
+    verifications: "verification_logs"
+    alerts: "security_alerts"
+    
+# API Configuration
+api:
+  host: "0.0.0.0"
+  port: 8001
+  workers: 4
+  reload: false
+  log_level: "info"
+  cors_origins: ["http://localhost:3000", "http://localhost:5000"]
+  
+# Monitoring and Alerts
+monitoring:
+  enable_prometheus: true
+  log_verifications: true
+  alert_on_failure: true
+  alert_threshold: 0.5          # Alert when confidence < threshold
+  alert_recipients:
+    - "admin@telehealth.com"
+    - "security@telehealth.com"
+    
+# Training Configuration
+training:
+  batch_size: 32
+  learning_rate: 0.0001
+  epochs: 50
+  validation_split: 0.2
+  early_stopping_patience: 10
+  checkpoint_dir: "models/checkpoints"
+  
+# Dataset Paths
+dataset:
+  base_path: "Voice dataset - senath"
+  dev_audio: "vox1_dev_wav/wav"
+  test_audio: "vox1_test_wav/wav"
+  tuplets_csv: "voiceprint_tuplets_dataset_5000.csv"
+  test_pairs: "list_test_all2.txt"
+  veri_test: "veri_test2.txt"
+  
+# Performance
+performance:
+  use_gpu: true
+  num_workers: 4
+  prefetch_factor: 2
+  pin_memory: true
+

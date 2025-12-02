@@ -1,0 +1,15 @@
+﻿======================================================================
+python : Traceback (most recent call last):
+At line:1 char:1
++ python test_core_functionality.py 2>&1 | Out-File -FilePath test_outp ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Traceback (most recent call last)::String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+  File "F:\Cyber_Project_1121\Voiceprint Analysis\test_core_functionality.py", line 14, in <module>
+    print("\U0001f9ea CORE FUNCTIONALITY TEST - VOICEPRINT ANALYSIS")
+    ~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Program Files\Python314\Lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\U0001f9ea' in position 0: character maps to <undefined>
