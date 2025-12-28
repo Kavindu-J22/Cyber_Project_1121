@@ -47,7 +47,9 @@ Voice dataset - senath/
 - **Duration:** Variable (typically 2-10 seconds per file)
 
 ### CSV Data (`voiceprint_tuplets_dataset_5000.csv`)
-- **Total Records:** 5,000 triplets
+- **Total Records:** 6,000 triplets
+- **Positive Matches:** 3,000 (same speaker)
+- **Negative Matches:** 3,000 (different speakers)
 - **Columns:** 14 fields
 - **Purpose:** Training data with anchor-positive-negative triplets
 
@@ -359,7 +361,9 @@ audio_files = list(speaker_path.rglob("*.wav"))
 ## 📊 Dataset Impact on Performance
 
 ### **Training Data (voiceprint_tuplets_dataset_5000.csv)**
-- **5,000 triplets** → Model learns speaker discrimination
+- **6,000 triplets** → Model learns speaker discrimination
+- **3,000 positive matches** → Same speaker pairs
+- **3,000 negative matches** → Different speaker pairs (balanced dataset)
 - **Anchor-Positive-Negative** → Triplet loss optimization
 - **Quality labels** → Anti-spoofing training data
 

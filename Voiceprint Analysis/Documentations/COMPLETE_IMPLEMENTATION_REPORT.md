@@ -45,7 +45,7 @@ A **production-ready, enterprise-grade Voiceprint Analysis System** has been suc
 
 | File/Folder | Records | Purpose | Integration |
 |-------------|---------|---------|-------------|
-| `voiceprint_tuplets_dataset_5000.csv` | 5,000 | Triplet training | ✅ Loaded in train.py |
+| `voiceprint_tuplets_dataset_5000.csv` | 6,000 | Triplet training | ✅ Loaded in train.py |
 | `veri_test2.txt` | 41,398 | EER evaluation | ✅ Primary evaluation |
 | `list_test_all2.txt` | 579,819 | Comprehensive testing | ✅ Available |
 | `vox1_dev_wav/` | ~148,000 | Speaker enrollment | ✅ Used in enrollment |
@@ -55,6 +55,7 @@ A **production-ready, enterprise-grade Voiceprint Analysis System** has been suc
 - **Total Speakers:** ~100 (id10001 - id10099)
 - **Total Audio Files:** ~152,900 WAV files
 - **Total Verification Pairs:** 621,217 pairs
+- **Triplet Dataset:** 6,000 triplets (3,000 positive + 3,000 negative matches)
 - **Audio Format:** 16-bit PCM WAV, 16kHz
 - **Quality Labels:** High, Medium, Low
 - **Anti-Spoofing Labels:** Authentic, Synthetic, Replay
