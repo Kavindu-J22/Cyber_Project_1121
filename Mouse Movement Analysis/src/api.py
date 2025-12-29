@@ -127,15 +127,17 @@ async def startup_event():
     
     if os.path.exists(checkpoint_path):
         logger.info(f"Loading model from: {checkpoint_path}")
-        
-        checkpoint = torch.load(checkpoint_path, map_location='cpu')
-        
-        # Get input dimension (we'll set a default and update when we get first data)
-        # For now, use a placeholder
-        input_dim = 50  # Will be updated dynamically
-        
+
+        checkpoint = torch.load(checkpoint_path, map_location='cpu', weights_only=False)
+
+        # Get input dimension from checkpoint
+        # The first layer weight shape is [hidden_dim, input_dim]
+        first_layer_weight = checkpoint['model_state_dict']['encoder.0.weight']
+        input_dim = first_layer_weight.shape[1]
+        logger.info(f"Detected input dimension from checkpoint: {input_dim}")
+
         model = MouseEmbeddingModel(input_dim, config)
-        
+
         try:
             model.load_state_dict(checkpoint['model_state_dict'])
             model.eval()

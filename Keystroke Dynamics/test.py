@@ -44,8 +44,8 @@ class KeystrokeTester:
     def load_model(self, model_path):
         """Load trained model"""
         logger.info(f"Loading model from: {model_path}")
-        
-        checkpoint = torch.load(model_path, map_location=self.device)
+
+        checkpoint = torch.load(model_path, map_location=self.device, weights_only=False)
         
         # Get input dimension from checkpoint or config
         # We'll need to load data first to get this
@@ -472,7 +472,7 @@ class KeystrokeTester:
         # Load checkpoint
         checkpoint_path = os.path.join(self.config.paths.checkpoint_dir, 'best_model.pth')
         if os.path.exists(checkpoint_path):
-            checkpoint = torch.load(checkpoint_path, map_location=self.device)
+            checkpoint = torch.load(checkpoint_path, map_location=self.device, weights_only=False)
             self.model.load_state_dict(checkpoint['model_state_dict'])
             logger.info("Model loaded successfully")
         else:

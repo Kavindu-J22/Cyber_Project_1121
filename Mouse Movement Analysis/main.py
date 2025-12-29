@@ -111,7 +111,7 @@ def run_demo(config):
         # Try to load checkpoint
         checkpoint_path = os.path.join(config.paths.checkpoint_dir, 'best_model.pth')
         if os.path.exists(checkpoint_path):
-            checkpoint = torch.load(checkpoint_path, map_location='cpu')
+            checkpoint = torch.load(checkpoint_path, map_location='cpu', weights_only=False)
             model.load_state_dict(checkpoint['model_state_dict'])
             logger.info("Model loaded from checkpoint")
         else:

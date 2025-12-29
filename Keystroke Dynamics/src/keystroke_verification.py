@@ -385,7 +385,7 @@ class KeystrokeVerifier:
 
     def load_templates(self, filepath: str):
         """Load enrolled templates from file"""
-        self.enrolled_templates = torch.load(filepath)
+        self.enrolled_templates = torch.load(filepath, weights_only=False)
         logger.info(f"Templates loaded from {filepath}")
         logger.info(f"Loaded {len(self.enrolled_templates)} user templates")
 

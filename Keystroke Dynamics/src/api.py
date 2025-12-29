@@ -130,7 +130,7 @@ async def startup_event():
         # Try to load checkpoint
         checkpoint_path = f"{config.paths.checkpoint_dir}/best_model.pth"
         try:
-            checkpoint = torch.load(checkpoint_path, map_location='cpu')
+            checkpoint = torch.load(checkpoint_path, map_location='cpu', weights_only=False)
             model.load_state_dict(checkpoint['model_state_dict'])
             logger.info("Model loaded from checkpoint")
         except:

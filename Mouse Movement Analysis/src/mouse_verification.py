@@ -354,7 +354,7 @@ class MouseVerifier:
         Args:
             filepath: Path to load templates from
         """
-        self.user_templates = torch.load(filepath)
+        self.user_templates = torch.load(filepath, weights_only=False)
         logger.info(f"Templates loaded from {filepath}")
 
 
