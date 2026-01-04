@@ -2,7 +2,7 @@ import { useState, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
-import { Shield, User, Mail, Lock, FileText, Briefcase, Calendar, Mic, Keyboard, Mouse, CheckCircle } from 'lucide-react';
+import { Shield, User, Mail, Lock, FileText, Briefcase, Calendar, Mic, Keyboard, Mouse, CheckCircle, Camera } from 'lucide-react';
 import { KeystrokeCapture, MouseCapture, VoiceCapture } from '../utils/biometricCapture';
 
 const Register = () => {
@@ -23,6 +23,7 @@ const Register = () => {
   });
 
   // Biometric data
+  const [faceEnrolled, setFaceEnrolled] = useState(false);
   const [voiceBlobs, setVoiceBlobs] = useState([]);
   const [keystrokeData, setKeystrokeData] = useState([]);
   const [mouseData, setMouseData] = useState([]);
@@ -33,6 +34,8 @@ const Register = () => {
   const voiceCapture = useRef(new VoiceCapture());
 
   // Recording states
+  const [isCapturingFace, setIsCapturingFace] = useState(false);
+  const [faceStream, setFaceStream] = useState(null);
   const [isRecordingVoice, setIsRecordingVoice] = useState(false);
   const [isCapturingKeystroke, setIsCapturingKeystroke] = useState(false);
   const [isCapturingMouse, setIsCapturingMouse] = useState(false);
@@ -40,6 +43,8 @@ const Register = () => {
   const [mouseRecordingTime, setMouseRecordingTime] = useState(0);
   const [currentKeystrokeSample, setCurrentKeystrokeSample] = useState(0);
   const [typedText, setTypedText] = useState('');
+
+  const videoRef = useRef(null);
 
   const handleChange = (e) => {
     setFormData({
@@ -78,6 +83,44 @@ const Register = () => {
 
   const handleBack = () => {
     setStep(step - 1);
+  };
+
+  // Face Recognition Capture
+  const startFaceCapture = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { width: 640, height: 480 }
+      });
+      setFaceStream(stream);
+      setIsCapturingFace(true);
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+      }
+      toast.success('📷 Camera activated! Position your face in the frame');
+    } catch (error) {
+      console.error('Camera access error:', error);
+      toast.error('Failed to access camera. Please check permissions.');
+    }
+  };
+
+  const captureFaceSample = () => {
+    if (videoRef.current && faceStream) {
+      // Simulate face capture (frontend only - no backend processing)
+      setFaceEnrolled(true);
+      stopFaceCapture();
+      toast.success('✅ Face sample captured successfully!');
+    }
+  };
+
+  const stopFaceCapture = () => {
+    if (faceStream) {
+      faceStream.getTracks().forEach(track => track.stop());
+      setFaceStream(null);
+    }
+    setIsCapturingFace(false);
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
   };
 
   // Voice Recording with timer - Collect 3 samples
@@ -403,8 +446,89 @@ const Register = () => {
                 <div className="text-center mb-6">
                   <h3 className="text-xl font-bold text-gray-900 mb-2">Biometric Enrollment</h3>
                   <p className="text-sm text-gray-600">
-                    Complete all three biometric enrollments for secure continuous authentication
+                    Complete all biometric enrollments for secure continuous authentication
                   </p>
+                </div>
+
+                {/* Face Recognition */}
+                <div className={`border-2 rounded-lg p-6 transition-all ${
+                  faceEnrolled ? 'border-green-500 bg-green-50' : 'border-gray-200 bg-white'
+                }`}>
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center">
+                      <div className={`p-2 rounded-full ${faceEnrolled ? 'bg-green-500' : 'bg-primary-600'}`}>
+                        <Camera className="h-5 w-5 text-white" />
+                      </div>
+                      <div className="ml-3">
+                        <h4 className="font-semibold text-gray-900">Face Recognition</h4>
+                        <p className="text-xs text-gray-500">Capture your face sample</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center">
+                      {faceEnrolled ? (
+                        <div className="flex items-center text-green-600">
+                          <CheckCircle className="h-5 w-5 mr-1" />
+                          <span className="text-sm font-medium">Complete</span>
+                        </div>
+                      ) : (
+                        <span className="text-sm font-medium text-gray-600">Not captured</span>
+                      )}
+                    </div>
+                  </div>
+
+                  {isCapturingFace && (
+                    <div className="mb-4">
+                      <div className="mb-2 p-3 bg-blue-50 border border-blue-200 rounded-md">
+                        <p className="text-sm font-medium text-blue-900 mb-1">
+                          📷 Position your face in the camera frame
+                        </p>
+                        <p className="text-xs text-blue-700">
+                          Make sure your face is clearly visible and well-lit
+                        </p>
+                      </div>
+                      <div className="relative w-full bg-black rounded-lg overflow-hidden">
+                        <video
+                          ref={videoRef}
+                          autoPlay
+                          playsInline
+                          className="w-full h-64 object-cover"
+                        />
+                        <div className="absolute inset-0 border-4 border-dashed border-blue-400 m-8 rounded-lg pointer-events-none"></div>
+                      </div>
+                    </div>
+                  )}
+
+                  {isCapturingFace ? (
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={captureFaceSample}
+                        className="flex-1 py-3 px-4 rounded-md text-sm font-medium bg-green-600 hover:bg-green-700 text-white transition-all"
+                      >
+                        ✅ Capture Face Sample
+                      </button>
+                      <button
+                        type="button"
+                        onClick={stopFaceCapture}
+                        className="flex-1 py-3 px-4 rounded-md text-sm font-medium bg-gray-600 hover:bg-gray-700 text-white transition-all"
+                      >
+                        ❌ Cancel
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={startFaceCapture}
+                      disabled={faceEnrolled}
+                      className={`w-full py-3 px-4 rounded-md text-sm font-medium transition-all ${
+                        faceEnrolled
+                          ? 'bg-green-600 text-white cursor-not-allowed'
+                          : 'bg-primary-600 hover:bg-primary-700 text-white'
+                      }`}
+                    >
+                      {faceEnrolled ? '✅ Face Sample Captured' : '📷 Start Camera'}
+                    </button>
+                  )}
                 </div>
 
                 {/* Voice Sample */}

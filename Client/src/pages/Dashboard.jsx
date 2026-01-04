@@ -10,7 +10,7 @@ const Dashboard = () => {
   const { user, logout } = useAuth();
   const [doctors, setDoctors] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [mlHealth, setMlHealth] = useState({ voice: false, keystroke: false, mouse: false });
+  const [mlHealth, setMlHealth] = useState({ face: false, voice: false, keystroke: false, mouse: false });
 
   useEffect(() => {
     fetchDoctors();
@@ -98,7 +98,15 @@ const Dashboard = () => {
             <Activity className="h-5 w-5 mr-2 text-primary-600" />
             ML Services Status
           </h2>
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-4 gap-4">
+            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+              <span className="text-sm font-medium text-gray-700">Face Recognition</span>
+              {mlHealth.face ? (
+                <CheckCircle className="h-5 w-5 text-green-600" />
+              ) : (
+                <XCircle className="h-5 w-5 text-red-600" />
+              )}
+            </div>
             <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
               <span className="text-sm font-medium text-gray-700">Voice Recognition</span>
               {mlHealth.voice ? (
@@ -129,7 +137,13 @@ const Dashboard = () => {
         {/* Biometric Enrollment Status */}
         <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Your Biometric Profile</h2>
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-4 gap-4">
+            <div className={`p-4 rounded-lg ${user?.biometricData?.faceEnrolled ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
+              <p className="text-sm font-medium text-gray-700">Face</p>
+              <p className="text-xs text-gray-600 mt-1">
+                {user?.biometricData?.faceEnrolled ? 'Enrolled ✓' : 'Not Enrolled ✗'}
+              </p>
+            </div>
             <div className={`p-4 rounded-lg ${user?.biometricData?.voiceEnrolled ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
               <p className="text-sm font-medium text-gray-700">Voice</p>
               <p className="text-xs text-gray-600 mt-1">
@@ -207,6 +221,11 @@ const Dashboard = () => {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex gap-2">
+                          <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                            doctor.biometricData?.faceEnrolled ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                          }`}>
+                            Face
+                          </span>
                           <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
                             doctor.biometricData?.voiceEnrolled ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
                           }`}>
