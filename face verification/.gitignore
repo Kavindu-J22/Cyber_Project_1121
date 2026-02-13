@@ -37,8 +37,8 @@ ENV/
 logs/
 *.log
 
-# Models (large files)
-*.pth
+# Models (large files - except .pth tracked by Git LFS)
+# *.pth  # Now tracked by Git LFS
 *.pt
 *.ckpt
 *.h5

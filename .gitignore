@@ -9,8 +9,8 @@
 **/*.py[cod]
 **/*$py.class
 
-# Large Model Files
-**/*.pth
+# Large Model Files (except .pth - using Git LFS)
+# **/*.pth  # Now tracked by Git LFS
 **/*.pt
 **/*.h5
 **/*.ckpt
