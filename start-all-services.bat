@@ -1,44 +1,53 @@
 @echo off
 echo ========================================
 echo Zero Trust Telehealth Platform
-echo Starting All Services...
+echo ML Services Startup Script
 echo ========================================
 echo.
 
+echo This script will start all 4 ML API services in separate terminals.
+echo Each service will activate its own virtual environment.
+echo.
+echo Services:
+echo   1. Voice Recognition API (Port 8001)
+echo   2. Keystroke Dynamics API (Port 8002)
+echo   3. Mouse Movement Analysis API (Port 8003)
+echo   4. Face Recognition API (Port 8004)
+echo.
+echo Press any key to continue or Ctrl+C to cancel...
+pause >nul
+
+echo.
 echo Starting Voice Recognition API (Port 8001)...
-start "Voice API" cmd /k "cd "Voiceprint Analysis" && python main.py api"
+start "Voice API - Port 8001" cmd /k "cd /d "%~dp0Voiceprint Analysis" && .\venv\Scripts\Activate.ps1 && python main.py api"
 timeout /t 3 /nobreak >nul
 
 echo Starting Keystroke Dynamics API (Port 8002)...
-start "Keystroke API" cmd /k "cd "Keystroke Dynamics" && python main.py api"
+start "Keystroke API - Port 8002" cmd /k "cd /d "%~dp0Keystroke Dynamics" && .\venv\Scripts\Activate.ps1 && python main.py api"
 timeout /t 3 /nobreak >nul
 
 echo Starting Mouse Movement API (Port 8003)...
-start "Mouse API" cmd /k "cd "Mouse Movement Analysis" && python main.py api"
+start "Mouse API - Port 8003" cmd /k "cd /d "%~dp0Mouse Movement Analysis" && .\venv\Scripts\Activate.ps1 && python main.py api"
 timeout /t 3 /nobreak >nul
 
-echo Starting Backend Server (Port 5000)...
-start "Backend Server" cmd /k "cd Backend && npm run dev"
-timeout /t 5 /nobreak >nul
-
-echo Starting Frontend App (Port 5173)...
-start "Frontend App" cmd /k "cd Client && npm run dev"
+echo Starting Face Recognition API (Port 8004)...
+start "Face API - Port 8004" cmd /k "cd /d "%~dp0face verification" && .\venv\Scripts\Activate.ps1 && python main.py api"
+timeout /t 3 /nobreak >nul
 
 echo.
 echo ========================================
-echo All services are starting!
+echo All ML services are starting...
 echo ========================================
 echo.
-echo Please wait for all services to fully start...
+echo Please wait for all services to initialize.
+echo Check each terminal window for status.
 echo.
-echo Services:
-echo   - Voice API:     http://localhost:8001
-echo   - Keystroke API: http://localhost:8002
-echo   - Mouse API:     http://localhost:8003
-echo   - Backend:       http://localhost:5000
-echo   - Frontend:      http://localhost:5173
+echo Services should be available at:
+echo   - Voice API: http://localhost:8001/health
+echo   - Keystroke API: http://localhost:8002/health
+echo   - Mouse API: http://localhost:8003/health
+echo   - Face API: http://localhost:8004/health
 echo.
-echo Open http://localhost:5173 in your browser
-echo.
-pause
+echo Press any key to exit this window...
+pause >nul
 

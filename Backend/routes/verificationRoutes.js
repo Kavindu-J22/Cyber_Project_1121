@@ -103,6 +103,37 @@ router.post('/mouse', protect, async (req, res) => {
   }
 });
 
+// @desc    Verify face
+// @route   POST /api/verification/face
+// @access  Private
+router.post('/face', protect, upload.single('faceSample'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: 'Face sample file is required'
+      });
+    }
+
+    const result = await mlService.verifyFace(req.doctor._id.toString(), req.file.path);
+    
+    // Clean up uploaded file
+    fs.unlinkSync(req.file.path);
+
+    res.json({
+      success: true,
+      data: result
+    });
+  } catch (error) {
+    console.error('Face verification error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Face verification failed',
+      error: error.message
+    });
+  }
+});
+
 // @desc    Check ML services health
 // @route   GET /api/verification/health
 // @access  Private

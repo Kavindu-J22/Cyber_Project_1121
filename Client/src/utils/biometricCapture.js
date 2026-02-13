@@ -308,3 +308,85 @@ export class VoiceCapture {
   }
 }
 
+// Face Capture with webcam
+export class FaceCapture {
+  constructor() {
+    this.stream = null;
+    this.faceImages = [];
+  }
+
+  async startCamera(videoElement) {
+    try {
+      this.stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          width: { ideal: 640 },
+          height: { ideal: 480 },
+          facingMode: 'user'
+        }
+      });
+
+      if (videoElement) {
+        videoElement.srcObject = this.stream;
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Failed to access camera:', error);
+      return false;
+    }
+  }
+
+  stopCamera() {
+    if (this.stream) {
+      this.stream.getTracks().forEach(track => track.stop());
+      this.stream = null;
+    }
+  }
+
+  captureFrame(videoElement, width = 224, height = 224) {
+    return new Promise((resolve, reject) => {
+      try {
+        if (!videoElement || !videoElement.srcObject) {
+          reject(new Error('Video element not ready'));
+          return;
+        }
+
+        // Create canvas to capture frame
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+
+        // Draw current video frame
+        ctx.drawImage(videoElement, 0, 0, width, height);
+
+        // Convert to blob
+        canvas.toBlob((blob) => {
+          if (blob) {
+            // Create File object
+            const file = new File([blob], `face_${Date.now()}.jpg`, { type: 'image/jpeg' });
+            this.faceImages.push(file);
+            resolve(file);
+          } else {
+            reject(new Error('Failed to capture frame'));
+          }
+        }, 'image/jpeg', 0.95);
+      } catch (error) {
+        reject(error);
+      }
+    });
+  }
+
+  clearImages() {
+    this.faceImages = [];
+  }
+
+  getImages() {
+    return this.faceImages;
+  }
+
+  getImageCount() {
+    return this.faceImages.length;
+  }
+}
+

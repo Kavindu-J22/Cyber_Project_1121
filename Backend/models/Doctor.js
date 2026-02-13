@@ -66,6 +66,14 @@ const doctorSchema = new mongoose.Schema({
     mouseProfile: {
       type: String, // Reference ID or serialized data
       default: null
+    },
+    faceEnrolled: {
+      type: Boolean,
+      default: false
+    },
+    faceProfile: {
+      type: String, // Reference ID or serialized data
+      default: null
     }
   },
   isActive: {

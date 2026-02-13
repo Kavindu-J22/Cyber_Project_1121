@@ -7,6 +7,7 @@ class MLService {
     this.voiceApiUrl = process.env.VOICE_API_URL || 'http://localhost:8001';
     this.keystrokeApiUrl = process.env.KEYSTROKE_API_URL || 'http://localhost:8002';
     this.mouseApiUrl = process.env.MOUSE_API_URL || 'http://localhost:8003';
+    this.faceApiUrl = process.env.FACE_API_URL || 'http://localhost:8004';
   }
 
   // Voice Recognition Services
@@ -150,12 +151,62 @@ class MLService {
     }
   }
 
+  // Face Verification Services
+  async enrollFace(userId, faceImagePaths) {
+    try {
+      const formData = new FormData();
+      formData.append('user_id', userId);
+      
+      // Add all face images
+      for (const imagePath of faceImagePaths) {
+        formData.append('face_samples', fs.createReadStream(imagePath));
+      }
+
+      const response = await axios.post(
+        `${this.faceApiUrl}/api/v1/enroll`,
+        formData,
+        {
+          headers: formData.getHeaders(),
+          timeout: 30000
+        }
+      );
+
+      return response.data;
+    } catch (error) {
+      console.error('Face enrollment error:', error.message);
+      throw new Error(`Face enrollment failed: ${error.message}`);
+    }
+  }
+
+  async verifyFace(userId, faceImagePath) {
+    try {
+      const formData = new FormData();
+      formData.append('user_id', userId);
+      formData.append('face_sample', fs.createReadStream(faceImagePath));
+
+      const response = await axios.post(
+        `${this.faceApiUrl}/api/v1/verify`,
+        formData,
+        {
+          headers: formData.getHeaders(),
+          timeout: 10000
+        }
+      );
+
+      return response.data;
+    } catch (error) {
+      console.error('Face verification error:', error.message);
+      throw new Error(`Face verification failed: ${error.message}`);
+    }
+  }
+
   // Health check for all ML services
   async checkHealth() {
     const results = {
       voice: false,
       keystroke: false,
-      mouse: false
+      mouse: false,
+      face: false
     };
 
     try {
@@ -177,6 +228,13 @@ class MLService {
       results.mouse = true;
     } catch (error) {
       console.error('Mouse API health check failed');
+    }
+
+    try {
+      await axios.get(`${this.faceApiUrl}/health`, { timeout: 5000 });
+      results.face = true;
+    } catch (error) {
+      console.error('Face API health check failed');
     }
 
     return results;

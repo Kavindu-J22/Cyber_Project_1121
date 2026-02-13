@@ -18,7 +18,8 @@ export const register = async (req, res) => {
       specialization,
       yearsOfExperience,
       keystrokePattern,
-      mousePattern
+      mousePattern,
+      facePattern
     } = req.body;
 
     // Check if doctor already exists
@@ -48,7 +49,8 @@ export const register = async (req, res) => {
     const biometricResults = {
       voice: { success: false, error: null },
       keystroke: { success: false, error: null },
-      mouse: { success: false, error: null }
+      mouse: { success: false, error: null },
+      face: { success: false, error: null }
     };
 
     // Enroll voice if audio files provided (expecting 3 samples)
@@ -136,6 +138,30 @@ export const register = async (req, res) => {
       } catch (error) {
         console.error('✗ Mouse enrollment failed:', error.message);
         biometricResults.mouse.error = error.message;
+      }
+    }
+
+    // Enroll face pattern (if face images provided)
+    if (facePattern) {
+      try {
+        console.log(`Enrolling face for doctor ${doctor._id}...`);
+        const faceData = JSON.parse(facePattern);
+        console.log(`Face images: ${faceData.length}`);
+        
+        // faceData should be an array of base64 images or file  &&
+                                  biometricResults.face.successpaths
+        // For now, assuming file paths are provided
+        const faceResult = await mlService.enrollFace(
+          doctor._id.toString(),
+          faceData
+        );
+        doctor.biometricData.faceEnrolled = true;
+        doctor.biometricData.faceProfile = doctor._id.toString();
+        biometricResults.face.success = true;
+        console.log('✓ Face enrollment successful');
+      } catch (error) {
+        console.error('✗ Face enrollment failed:', error.message);
+        biometricResults.face.error = error.message;
       }
     }
 

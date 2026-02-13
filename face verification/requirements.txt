@@ -1,0 +1,36 @@
+# Face Verification Requirements
+# Zero Trust Telehealth Platform
+
+# Core Framework
+fastapi==0.115.0
+uvicorn[standard]==0.30.6
+python-multipart==0.0.9
+
+# Deep Learning
+torch>=2.0.0
+torchvision>=0.15.0
+
+# Image Processing
+pillow==10.4.0
+opencv-python>=4.8.0
+
+# Configuration & Utilities
+pyyaml>=6.0
+loguru>=0.7.0
+python-dotenv>=1.0.0
+
+# Data Processing
+numpy>=1.24.0
+pandas>=2.0.0
+
+# API & Networking
+aiofiles>=23.0.0
+httpx>=0.24.0
+
+# Monitoring (Optional)
+prometheus-client>=0.17.0
+
+# Face Detection (Optional)
+# Uncomment if face detection is enabled in config
+# mtcnn>=0.1.1
+# facenet-pytorch>=2.5.2

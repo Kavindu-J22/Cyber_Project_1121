@@ -114,6 +114,11 @@ io.on('connection', (socket) => {
         case 'mouse':
           result = await mlService.verifyMouse(doctorId, payload);
           break;
+        
+        case 'face':
+          // Face verification with image file
+          result = await mlService.verifyFace(doctorId, payload);
+          break;
       }
 
       if (result) {

@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
 import { Shield, User, Mail, Lock, FileText, Briefcase, Calendar, Mic, Keyboard, Mouse, CheckCircle, Camera } from 'lucide-react';
-import { KeystrokeCapture, MouseCapture, VoiceCapture } from '../utils/biometricCapture';
+import { KeystrokeCapture, MouseCapture, VoiceCapture, FaceCapture } from '../utils/biometricCapture';
 
 const Register = () => {
   const navigate = useNavigate();
@@ -23,22 +23,22 @@ const Register = () => {
   });
 
   // Biometric data
-  const [faceEnrolled, setFaceEnrolled] = useState(false);
   const [voiceBlobs, setVoiceBlobs] = useState([]);
   const [keystrokeData, setKeystrokeData] = useState([]);
   const [mouseData, setMouseData] = useState([]);
+  const [faceImages, setFaceImages] = useState([]);
 
   // Capture instances
   const keystrokeCapture = useRef(new KeystrokeCapture());
   const mouseCapture = useRef(new MouseCapture());
   const voiceCapture = useRef(new VoiceCapture());
+  const faceCapture = useRef(new FaceCapture());
 
   // Recording states
-  const [isCapturingFace, setIsCapturingFace] = useState(false);
-  const [faceStream, setFaceStream] = useState(null);
   const [isRecordingVoice, setIsRecordingVoice] = useState(false);
   const [isCapturingKeystroke, setIsCapturingKeystroke] = useState(false);
   const [isCapturingMouse, setIsCapturingMouse] = useState(false);
+  const [isCameraActive, setIsCameraActive] = useState(false);
   const [voiceRecordingTime, setVoiceRecordingTime] = useState(0);
   const [mouseRecordingTime, setMouseRecordingTime] = useState(0);
   const [currentKeystrokeSample, setCurrentKeystrokeSample] = useState(0);
@@ -85,39 +85,38 @@ const Register = () => {
     setStep(step - 1);
   };
 
-  // Face Recognition Capture
+  // Face Recognition Capture (3 images)
   const startFaceCapture = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { width: 640, height: 480 }
-      });
-      setFaceStream(stream);
-      setIsCapturingFace(true);
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-      }
+    const started = await faceCapture.current.startCamera(videoRef.current);
+    if (started) {
+      setIsCameraActive(true);
       toast.success('📷 Camera activated! Position your face in the frame');
-    } catch (error) {
-      console.error('Camera access error:', error);
+    } else {
       toast.error('Failed to access camera. Please check permissions.');
     }
   };
 
-  const captureFaceSample = () => {
-    if (videoRef.current && faceStream) {
-      // Simulate face capture (frontend only - no backend processing)
-      setFaceEnrolled(true);
-      stopFaceCapture();
-      toast.success('✅ Face sample captured successfully!');
+  const captureFaceSample = async () => {
+    try {
+      await faceCapture.current.captureFrame(videoRef.current, 224, 224);
+      const count = faceCapture.current.getImageCount();
+      setFaceImages(faceCapture.current.getImages());
+      
+      if (count >= 3) {
+        toast.success(`✅ All ${count} face samples captured!`);
+        stopFaceCapture();
+      } else {
+        toast.success(`✅ Face sample ${count}/3 captured! Capture ${3 - count} more.`);
+      }
+    } catch (error) {
+      console.error('Face capture error:', error);
+      toast.error('Failed to capture face sample');
     }
   };
 
   const stopFaceCapture = () => {
-    if (faceStream) {
-      faceStream.getTracks().forEach(track => track.stop());
-      setFaceStream(null);
-    }
-    setIsCapturingFace(false);
+    faceCapture.current.stopCamera();
+    setIsCameraActive(false);
     if (videoRef.current) {
       videoRef.current.srcObject = null;
     }
@@ -268,6 +267,11 @@ const Register = () => {
 
       submitData.append('keystrokePattern', JSON.stringify(keystrokeData));
       submitData.append('mousePattern', JSON.stringify(mouseData));
+      
+      // Append all 3 face images
+      faceImages.forEach((image, index) => {
+        submitData.append('faceImages', image, `face-sample-${index + 1}.jpg`);
+      });
 
       await register(submitData);
       toast.success('Registration successful!');

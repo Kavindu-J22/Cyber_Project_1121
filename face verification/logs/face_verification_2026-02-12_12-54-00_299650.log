@@ -1,0 +1,13 @@
+2026-02-12 12:54:00 | INFO     | __main__:run_api - Starting Face Verification API server...
+2026-02-12 12:54:00 | INFO     | __main__:run_api -   Host: 0.0.0.0
+2026-02-12 12:54:00 | INFO     | __main__:run_api -   Port: 8004
+2026-02-12 12:54:00 | INFO     | __main__:run_api -   Workers: 1
+2026-02-12 12:54:00 | INFO     | __main__:run_api -   Docs: http://localhost:8004/docs
+2026-02-12 12:54:00 | INFO     | src.api:startup_event - ======================================================================
+2026-02-12 12:54:00 | INFO     | src.api:startup_event - 🔐 Face Verification API - Zero Trust Telehealth Platform
+2026-02-12 12:54:00 | INFO     | src.api:startup_event - ======================================================================
+2026-02-12 12:54:00 | INFO     | src.face_verification:__init__ - Using device: cpu
+2026-02-12 12:54:00 | INFO     | src.face_verification:_load_model - Loading model from: models\best_resnet50_triplet.pth
+2026-02-12 12:54:01 | INFO     | src.face_verification:_load_model - ✓ Model loaded successfully (embedding_dim=512)
+2026-02-12 12:54:01 | INFO     | src.face_verification:__init__ - Face verification engine initialized successfully
+2026-02-12 12:54:01 | INFO     | src.api:startup_event - ✓ Verification engine initialized
