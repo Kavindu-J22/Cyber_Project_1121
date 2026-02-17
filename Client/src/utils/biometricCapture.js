@@ -327,6 +327,13 @@ export class FaceCapture {
 
       if (videoElement) {
         videoElement.srcObject = this.stream;
+        // Explicitly play the video
+        try {
+          await videoElement.play();
+        } catch (playError) {
+          console.warn('Video play was prevented:', playError);
+          // Some browsers require user interaction before playing
+        }
       }
 
       return true;

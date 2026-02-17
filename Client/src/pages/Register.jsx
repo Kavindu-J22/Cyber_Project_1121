@@ -39,10 +39,16 @@ const Register = () => {
   const [isCapturingKeystroke, setIsCapturingKeystroke] = useState(false);
   const [isCapturingMouse, setIsCapturingMouse] = useState(false);
   const [isCameraActive, setIsCameraActive] = useState(false);
+  const [isCapturingFace, setIsCapturingFace] = useState(false);
+  const [isProcessingCapture, setIsProcessingCapture] = useState(false);
+  const [cameraReady, setCameraReady] = useState(false);
   const [voiceRecordingTime, setVoiceRecordingTime] = useState(0);
   const [mouseRecordingTime, setMouseRecordingTime] = useState(0);
   const [currentKeystrokeSample, setCurrentKeystrokeSample] = useState(0);
   const [typedText, setTypedText] = useState('');
+
+  // Computed values
+  const faceEnrolled = faceImages.length >= 3;
 
   const videoRef = useRef(null);
 
@@ -87,17 +93,87 @@ const Register = () => {
 
   // Face Recognition Capture (3 images)
   const startFaceCapture = async () => {
-    const started = await faceCapture.current.startCamera(videoRef.current);
-    if (started) {
-      setIsCameraActive(true);
-      toast.success('📷 Camera activated! Position your face in the frame');
-    } else {
-      toast.error('Failed to access camera. Please check permissions.');
+    try {
+      setCameraReady(false);
+      const started = await faceCapture.current.startCamera(videoRef.current);
+      if (started) {
+        setIsCameraActive(true);
+        setIsCapturingFace(true);
+        
+        // Wait for video to be ready and playing
+        if (videoRef.current) {
+          await new Promise((resolve) => {
+            const checkReady = () => {
+              if (videoRef.current && videoRef.current.readyState >= 2) {
+                setCameraReady(true);
+                resolve();
+              } else if (videoRef.current) {
+                videoRef.current.onloadedmetadata = () => {
+                  setCameraReady(true);
+                  resolve();
+                };
+                // Safety timeout - mark as ready after 2 seconds anyway
+                setTimeout(() => {
+                  setCameraReady(true);
+                  resolve();
+                }, 2000);
+              } else {
+                resolve();
+              }
+            };
+            
+            // Try to play the video
+            if (videoRef.current) {
+              videoRef.current.play().then(() => {
+                checkReady();
+              }).catch(err => {
+                console.warn('Video autoplay prevented:', err);
+                checkReady();
+              });
+            } else {
+              checkReady();
+            }
+          });
+          
+          // Give it a moment to start displaying
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
+        
+        toast.success('📷 Camera activated! Wait for the green indicator, then capture.');
+      } else {
+        toast.error('Failed to access camera. Please check permissions.');
+      }
+    } catch (error) {
+      console.error('Camera start error:', error);
+      toast.error('Failed to start camera. Please check permissions.');
     }
   };
 
   const captureFaceSample = async () => {
+    if (isProcessingCapture) return; // Prevent double-clicks
+    
     try {
+      setIsProcessingCapture(true);
+      
+      // Validate video is ready
+      if (!videoRef.current) {
+        toast.error('Video element not found.');
+        return;
+      }
+
+      if (!videoRef.current.srcObject) {
+        toast.error('Camera stream not available. Please restart the camera.');
+        return;
+      }
+
+      // Less strict check - just warn if readyState is low but still try
+      if (videoRef.current.readyState < 1) {
+        console.warn('Video readyState:', videoRef.current.readyState);
+        toast.error('Video is still loading. Please wait a moment.');
+        return;
+      }
+
+      // Try to capture
       await faceCapture.current.captureFrame(videoRef.current, 224, 224);
       const count = faceCapture.current.getImageCount();
       setFaceImages(faceCapture.current.getImages());
@@ -110,13 +186,24 @@ const Register = () => {
       }
     } catch (error) {
       console.error('Face capture error:', error);
-      toast.error('Failed to capture face sample');
+      console.error('Video element state:', {
+        exists: !!videoRef.current,
+        hasStream: !!videoRef.current?.srcObject,
+        readyState: videoRef.current?.readyState,
+        videoWidth: videoRef.current?.videoWidth,
+        videoHeight: videoRef.current?.videoHeight
+      });
+      toast.error(`Failed to capture: ${error.message}`);
+    } finally {
+      setIsProcessingCapture(false);
     }
   };
 
   const stopFaceCapture = () => {
     faceCapture.current.stopCamera();
     setIsCameraActive(false);
+    setIsCapturingFace(false);
+    setCameraReady(false);
     if (videoRef.current) {
       videoRef.current.srcObject = null;
     }
@@ -245,6 +332,11 @@ const Register = () => {
 
     if (mouseData.length === 0) {
       toast.error('Please capture a mouse movement pattern');
+      return;
+    }
+
+    if (faceImages.length < 3) {
+      toast.error(`Please capture 3 face samples (${faceImages.length}/3 completed)`);
       return;
     }
 
@@ -465,7 +557,7 @@ const Register = () => {
                       </div>
                       <div className="ml-3">
                         <h4 className="font-semibold text-gray-900">Face Recognition</h4>
-                        <p className="text-xs text-gray-500">Capture your face sample</p>
+                        <p className="text-xs text-gray-500">Capture 3 face samples ({faceImages.length}/3 completed)</p>
                       </div>
                     </div>
                     <div className="flex items-center">
@@ -482,12 +574,22 @@ const Register = () => {
 
                   {isCapturingFace && (
                     <div className="mb-4">
-                      <div className="mb-2 p-3 bg-blue-50 border border-blue-200 rounded-md">
-                        <p className="text-sm font-medium text-blue-900 mb-1">
-                          📷 Position your face in the camera frame
+                      <div className={`mb-2 p-3 border rounded-md ${
+                        cameraReady 
+                          ? 'bg-green-50 border-green-200' 
+                          : 'bg-yellow-50 border-yellow-200'
+                      }`}>
+                        <p className={`text-sm font-medium mb-1 ${
+                          cameraReady ? 'text-green-900' : 'text-yellow-900'
+                        }`}>
+                          {cameraReady ? '✅ Camera Ready!' : '⏳ Camera Loading...'}
                         </p>
-                        <p className="text-xs text-blue-700">
-                          Make sure your face is clearly visible and well-lit
+                        <p className={`text-xs ${
+                          cameraReady ? 'text-green-700' : 'text-yellow-700'
+                        }`}>
+                          {cameraReady 
+                            ? 'Position your face in the frame and click Capture' 
+                            : 'Please wait for the camera to initialize'}
                         </p>
                       </div>
                       <div className="relative w-full bg-black rounded-lg overflow-hidden">
@@ -495,10 +597,29 @@ const Register = () => {
                           ref={videoRef}
                           autoPlay
                           playsInline
+                          muted
                           className="w-full h-64 object-cover"
+                          style={{ transform: 'scaleX(-1)' }}
                         />
                         <div className="absolute inset-0 border-4 border-dashed border-blue-400 m-8 rounded-lg pointer-events-none"></div>
                       </div>
+                      
+                      {faceImages.length > 0 && (
+                        <div className="mt-3">
+                          <p className="text-xs font-medium text-gray-700 mb-2">Captured Samples:</p>
+                          <div className="flex gap-2">
+                            {faceImages.map((img, index) => (
+                              <div key={index} className="w-16 h-16 rounded-lg overflow-hidden border-2 border-green-500">
+                                <img
+                                  src={URL.createObjectURL(img)}
+                                  alt={`Face sample ${index + 1}`}
+                                  className="w-full h-full object-cover"
+                                />
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
 
@@ -507,31 +628,56 @@ const Register = () => {
                       <button
                         type="button"
                         onClick={captureFaceSample}
-                        className="flex-1 py-3 px-4 rounded-md text-sm font-medium bg-green-600 hover:bg-green-700 text-white transition-all"
+                        disabled={isProcessingCapture || !cameraReady}
+                        className={`flex-1 py-3 px-4 rounded-md text-sm font-medium transition-all ${
+                          isProcessingCapture || !cameraReady
+                            ? 'bg-gray-400 cursor-not-allowed text-white'
+                            : 'bg-green-600 hover:bg-green-700 text-white'
+                        }`}
                       >
-                        ✅ Capture Face Sample
+                        {isProcessingCapture ? '⏳ Capturing...' : !cameraReady ? '⏳ Camera Loading...' : `✅ Capture Sample (${faceImages.length}/3)`}
                       </button>
                       <button
                         type="button"
                         onClick={stopFaceCapture}
-                        className="flex-1 py-3 px-4 rounded-md text-sm font-medium bg-gray-600 hover:bg-gray-700 text-white transition-all"
+                        disabled={isProcessingCapture}
+                        className="flex-1 py-3 px-4 rounded-md text-sm font-medium bg-gray-600 hover:bg-gray-700 text-white transition-all disabled:bg-gray-400 disabled:cursor-not-allowed"
                       >
                         ❌ Cancel
                       </button>
                     </div>
                   ) : (
-                    <button
-                      type="button"
-                      onClick={startFaceCapture}
-                      disabled={faceEnrolled}
-                      className={`w-full py-3 px-4 rounded-md text-sm font-medium transition-all ${
-                        faceEnrolled
-                          ? 'bg-green-600 text-white cursor-not-allowed'
-                          : 'bg-primary-600 hover:bg-primary-700 text-white'
-                      }`}
-                    >
-                      {faceEnrolled ? '✅ Face Sample Captured' : '📷 Start Camera'}
-                    </button>
+                    <>
+                      {faceImages.length > 0 && !faceEnrolled && (
+                        <div className="mb-4">
+                          <p className="text-xs font-medium text-gray-700 mb-2">Captured Samples ({faceImages.length}/3):</p>
+                          <div className="flex gap-2">
+                            {faceImages.map((img, index) => (
+                              <div key={index} className="w-20 h-20 rounded-lg overflow-hidden border-2 border-green-500">
+                                <img
+                                  src={URL.createObjectURL(img)}
+                                  alt={`Face sample ${index + 1}`}
+                                  className="w-full h-full object-cover"
+                                />
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      
+                      <button
+                        type="button"
+                        onClick={startFaceCapture}
+                        disabled={faceEnrolled}
+                        className={`w-full py-3 px-4 rounded-md text-sm font-medium transition-all ${
+                          faceEnrolled
+                            ? 'bg-green-600 text-white cursor-not-allowed'
+                            : 'bg-primary-600 hover:bg-primary-700 text-white'
+                        }`}
+                      >
+                        {faceEnrolled ? '✅ Face Samples Captured (3/3)' : '📷 Start Camera'}
+                      </button>
+                    </>
                   )}
                 </div>
 
