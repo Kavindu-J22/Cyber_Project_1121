@@ -147,6 +147,7 @@ const AdminDashboard = () => {
                               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
                               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Specialization</th>
                               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Experience</th>
+                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Biometric Status</th>
                             </tr>
                           </thead>
                           <tbody className="bg-white divide-y divide-gray-200">
@@ -165,6 +166,30 @@ const AdminDashboard = () => {
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap">
                                   <div className="text-sm text-gray-600">{doctor.yearsOfExperience} years</div>
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap">
+                                  <div className="flex gap-2">
+                                    <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                                      doctor.biometricData?.faceEnrolled ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                                    }`}>
+                                      Face {doctor.biometricData?.faceEnrolled ? '✓' : '✗'}
+                                    </span>
+                                    <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                                      doctor.biometricData?.voiceEnrolled ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                                    }`}>
+                                      Voice {doctor.biometricData?.voiceEnrolled ? '✓' : '✗'}
+                                    </span>
+                                    <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                                      doctor.biometricData?.keystrokeEnrolled ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                                    }`}>
+                                      Keystroke {doctor.biometricData?.keystrokeEnrolled ? '✓' : '✗'}
+                                    </span>
+                                    <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                                      doctor.biometricData?.mouseEnrolled ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                                    }`}>
+                                      Mouse {doctor.biometricData?.mouseEnrolled ? '✓' : '✗'}
+                                    </span>
+                                  </div>
                                 </td>
                               </tr>
                             ))}

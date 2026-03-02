@@ -9,7 +9,9 @@ export const getMe = async (req, res) => {
 
     res.json({
       success: true,
-      data: doctor
+      data: {
+        doctor: doctor
+      }
     });
   } catch (error) {
     console.error('Get profile error:', error);
@@ -33,7 +35,9 @@ export const getAllDoctors = async (req, res) => {
     res.json({
       success: true,
       count: doctors.length,
-      data: doctors
+      data: {
+        doctors: doctors
+      }
     });
   } catch (error) {
     console.error('Get doctors error:', error);

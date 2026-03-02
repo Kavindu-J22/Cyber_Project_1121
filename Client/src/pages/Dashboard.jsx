@@ -3,31 +3,16 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
 import toast from 'react-hot-toast';
-import { Shield, Video, LogOut, Users, Activity, CheckCircle, XCircle } from 'lucide-react';
+import { Shield, Video, LogOut, Activity, CheckCircle, XCircle } from 'lucide-react';
 
 const Dashboard = () => {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
-  const [doctors, setDoctors] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [mlHealth, setMlHealth] = useState({ face: false, voice: false, keystroke: false, mouse: false });
 
   useEffect(() => {
-    fetchDoctors();
     checkMLHealth();
   }, []);
-
-  const fetchDoctors = async () => {
-    try {
-      const response = await axios.get('/api/doctors');
-      setDoctors(response.data.data);
-    } catch (error) {
-      console.error('Failed to fetch doctors:', error);
-      toast.error('Failed to load doctors list');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const checkMLHealth = async () => {
     try {
@@ -178,78 +163,7 @@ const Dashboard = () => {
           </button>
         </div>
 
-        {/* Registered Doctors List */}
-        <div className="bg-white rounded-lg shadow-sm p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-            <Users className="h-5 w-5 mr-2 text-primary-600" />
-            Registered Doctors ({doctors.length})
-          </h2>
-          
-          {loading ? (
-            <div className="text-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mx-auto"></div>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Specialization</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">License</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Experience</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Biometric Status</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {doctors.map((doctor) => (
-                    <tr key={doctor._id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900">
-                          Dr. {doctor.firstName} {doctor.lastName}
-                        </div>
-                        <div className="text-sm text-gray-500">{doctor.email}</div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {doctor.specialization}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {doctor.medicalLicenseNumber}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {doctor.yearsOfExperience} years
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex gap-2">
-                          <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                            doctor.biometricData?.faceEnrolled ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-                          }`}>
-                            Face
-                          </span>
-                          <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                            doctor.biometricData?.voiceEnrolled ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-                          }`}>
-                            Voice
-                          </span>
-                          <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                            doctor.biometricData?.keystrokeEnrolled ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-                          }`}>
-                            Key
-                          </span>
-                          <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                            doctor.biometricData?.mouseEnrolled ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-                          }`}>
-                            Mouse
-                          </span>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
+
       </main>
     </div>
   );
