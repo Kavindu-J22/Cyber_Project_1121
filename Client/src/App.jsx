@@ -4,6 +4,8 @@ import { useAuth } from './context/AuthContext';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
+import PatientDashboard from './pages/PatientDashboard';
+import AdminDashboard from './pages/AdminDashboard';
 import Meeting from './pages/Meeting';
 import PrivateRoute from './components/PrivateRoute';
 
@@ -18,20 +20,36 @@ function App() {
           <Route
             path="/dashboard"
             element={
-              <PrivateRoute>
+              <PrivateRoute allowedRoles={['doctor']}>
                 <Dashboard />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/patient-dashboard"
+            element={
+              <PrivateRoute allowedRoles={['patient']}>
+                <PatientDashboard />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/admin-dashboard"
+            element={
+              <PrivateRoute allowedRoles={['admin']}>
+                <AdminDashboard />
               </PrivateRoute>
             }
           />
           <Route
             path="/meeting/:sessionId"
             element={
-              <PrivateRoute>
+              <PrivateRoute allowedRoles={['doctor']}>
                 <Meeting />
               </PrivateRoute>
             }
           />
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+          <Route path="/" element={<Navigate to="/login" replace />} />
         </Routes>
       </div>
     </Router>

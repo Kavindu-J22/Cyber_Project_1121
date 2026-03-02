@@ -1,5 +1,6 @@
 import jwt from 'jsonwebtoken';
 import Doctor from '../models/Doctor.js';
+import Patient from '../models/Patient.js';
 
 export const protect = async (req, res, next) => {
   let token;
@@ -12,13 +13,28 @@ export const protect = async (req, res, next) => {
       // Verify token
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-      // Get doctor from token
-      req.doctor = await Doctor.findById(decoded.id).select('-password');
+      // Check if admin
+      if (decoded.role === 'admin') {
+        req.user = { id: 'admin', role: 'admin', email: 'admin@gmail.com' };
+        req.userRole = 'admin';
+        return next();
+      }
 
-      if (!req.doctor) {
+      // Get user based on role
+      if (decoded.role === 'doctor') {
+        req.user = await Doctor.findById(decoded.id).select('-password');
+        req.doctor = req.user; // For backward compatibility
+        req.userRole = 'doctor';
+      } else if (decoded.role === 'patient') {
+        req.user = await Patient.findById(decoded.id).select('-password');
+        req.patient = req.user;
+        req.userRole = 'patient';
+      }
+
+      if (!req.user) {
         return res.status(401).json({
           success: false,
-          message: 'Not authorized, doctor not found'
+          message: 'Not authorized, user not found'
         });
       }
 
@@ -40,9 +56,9 @@ export const protect = async (req, res, next) => {
   }
 };
 
-// Generate JWT Token
-export const generateToken = (id) => {
-  return jwt.sign({ id }, process.env.JWT_SECRET, {
+// Generate JWT Token with role
+export const generateToken = (id, role = 'doctor') => {
+  return jwt.sign({ id, role }, process.env.JWT_SECRET, {
     expiresIn: process.env.JWT_EXPIRE
   });
 };

@@ -6,7 +6,7 @@ import { Shield, Mail, Lock, LogIn } from 'lucide-react';
 
 const Login = () => {
   const navigate = useNavigate();
-  const { login, user } = useAuth();
+  const { login, user, userRole } = useAuth();
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -15,7 +15,13 @@ const Login = () => {
 
   // Redirect if already logged in
   if (user) {
-    navigate('/dashboard');
+    if (userRole === 'admin') {
+      navigate('/admin-dashboard');
+    } else if (userRole === 'patient') {
+      navigate('/patient-dashboard');
+    } else {
+      navigate('/dashboard');
+    }
   }
 
   const handleChange = (e) => {
@@ -30,9 +36,19 @@ const Login = () => {
     setLoading(true);
 
     try {
-      await login(formData.email, formData.password);
+      const response = await login(formData.email, formData.password);
+      const role = response.data.role;
+
       toast.success('Login successful!');
-      navigate('/dashboard');
+
+      // Navigate based on role
+      if (role === 'admin') {
+        navigate('/admin-dashboard');
+      } else if (role === 'patient') {
+        navigate('/patient-dashboard');
+      } else {
+        navigate('/dashboard');
+      }
     } catch (error) {
       console.error('Login error:', error);
       toast.error(error.response?.data?.message || 'Login failed. Please try again.');

@@ -7,19 +7,26 @@ import { KeystrokeCapture, MouseCapture, VoiceCapture, FaceCapture } from '../ut
 
 const Register = () => {
   const navigate = useNavigate();
-  const { register } = useAuth();
-  const [step, setStep] = useState(1);
+  const { register, registerPatient } = useAuth();
+  const [userType, setUserType] = useState(null); // 'doctor' or 'patient'
+  const [step, setStep] = useState(0); // 0 = user type selection, 1+ = registration steps
   const [loading, setLoading] = useState(false);
-  
+
   const [formData, setFormData] = useState({
-    firstName: '',
-    lastName: '',
+    // Common fields
     email: '',
     password: '',
     confirmPassword: '',
+    // Doctor fields
+    firstName: '',
+    lastName: '',
     medicalLicenseNumber: '',
     specialization: '',
     yearsOfExperience: '',
+    // Patient fields
+    fullName: '',
+    age: '',
+    gender: '',
   });
 
   // Biometric data
@@ -59,31 +66,57 @@ const Register = () => {
     });
   };
 
+  const handleUserTypeSelection = (type) => {
+    setUserType(type);
+    setStep(1);
+  };
+
   const handleNext = () => {
-    // Validate current step
-    if (step === 1) {
-      if (!formData.firstName || !formData.lastName || !formData.email || 
-          !formData.password || !formData.confirmPassword) {
-        toast.error('Please fill in all fields');
-        return;
+    // Validate current step for Doctor
+    if (userType === 'doctor') {
+      if (step === 1) {
+        if (!formData.firstName || !formData.lastName || !formData.email ||
+            !formData.password || !formData.confirmPassword) {
+          toast.error('Please fill in all fields');
+          return;
+        }
+        if (formData.password !== formData.confirmPassword) {
+          toast.error('Passwords do not match');
+          return;
+        }
+        if (formData.password.length < 6) {
+          toast.error('Password must be at least 6 characters');
+          return;
+        }
       }
-      if (formData.password !== formData.confirmPassword) {
-        toast.error('Passwords do not match');
-        return;
-      }
-      if (formData.password.length < 6) {
-        toast.error('Password must be at least 6 characters');
-        return;
+
+      if (step === 2) {
+        if (!formData.medicalLicenseNumber || !formData.specialization || !formData.yearsOfExperience) {
+          toast.error('Please fill in all professional details');
+          return;
+        }
       }
     }
-    
-    if (step === 2) {
-      if (!formData.medicalLicenseNumber || !formData.specialization || !formData.yearsOfExperience) {
-        toast.error('Please fill in all professional details');
-        return;
+
+    // Validate for Patient
+    if (userType === 'patient') {
+      if (step === 1) {
+        if (!formData.fullName || !formData.age || !formData.gender ||
+            !formData.email || !formData.password || !formData.confirmPassword) {
+          toast.error('Please fill in all fields');
+          return;
+        }
+        if (formData.password !== formData.confirmPassword) {
+          toast.error('Passwords do not match');
+          return;
+        }
+        if (formData.password.length < 6) {
+          toast.error('Password must be at least 6 characters');
+          return;
+        }
       }
     }
-    
+
     setStep(step + 1);
   };
 
@@ -358,6 +391,29 @@ const Register = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    // Patient registration (simple, no biometrics)
+    if (userType === 'patient') {
+      setLoading(true);
+      try {
+        await registerPatient({
+          fullName: formData.fullName,
+          age: formData.age,
+          gender: formData.gender,
+          email: formData.email,
+          password: formData.password
+        });
+        toast.success('Patient registration successful!');
+        navigate('/patient-dashboard');
+      } catch (error) {
+        console.error('Patient registration error:', error);
+        toast.error(error.response?.data?.message || 'Registration failed. Please try again.');
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
+    // Doctor registration (with biometrics)
     if (voiceBlobs.length < 3) {
       toast.error(`Please record 3 voice samples (${voiceBlobs.length}/3 completed)`);
       return;
@@ -397,14 +453,14 @@ const Register = () => {
 
       submitData.append('keystrokePattern', JSON.stringify(keystrokeData));
       submitData.append('mousePattern', JSON.stringify(mouseData));
-      
+
       // Append all 3 face images
       faceImages.forEach((image, index) => {
         submitData.append('faceImages', image, `face-sample-${index + 1}.jpg`);
       });
 
       await register(submitData);
-      toast.success('Registration successful!');
+      toast.success('Doctor registration successful!');
       navigate('/dashboard');
     } catch (error) {
       console.error('Registration error:', error);
@@ -424,17 +480,167 @@ const Register = () => {
             </div>
           </div>
           <h2 className="mt-6 text-3xl font-extrabold text-gray-900">
-            Doctor Registration
+            {step === 0 ? 'Registration' : userType === 'doctor' ? 'Doctor Registration' : 'Patient Registration'}
           </h2>
-          <p className="mt-2 text-sm text-gray-600">
-            Step {step} of 3
-          </p>
+          {step > 0 && (
+            <p className="mt-2 text-sm text-gray-600">
+              {userType === 'doctor' ? `Step ${step} of 3` : 'Complete Your Profile'}
+            </p>
+          )}
         </div>
 
         <div className="bg-white rounded-lg shadow-xl p-8">
+          {/* Step 0: User Type Selection */}
+          {step === 0 && (
+            <div className="space-y-6">
+              <h3 className="text-lg font-medium text-gray-900 mb-6 text-center">Choose Registration Type</h3>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <button
+                  type="button"
+                  onClick={() => handleUserTypeSelection('doctor')}
+                  className="p-8 border-2 border-gray-300 rounded-lg hover:border-primary-500 hover:bg-primary-50 transition-all duration-200 group"
+                >
+                  <Briefcase className="h-16 w-16 mx-auto text-primary-600 mb-4" />
+                  <h4 className="text-xl font-semibold text-gray-900 mb-2">Register as Doctor</h4>
+                  <p className="text-sm text-gray-600">
+                    Complete registration with biometric authentication for secure access
+                  </p>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleUserTypeSelection('patient')}
+                  className="p-8 border-2 border-gray-300 rounded-lg hover:border-primary-500 hover:bg-primary-50 transition-all duration-200 group"
+                >
+                  <User className="h-16 w-16 mx-auto text-primary-600 mb-4" />
+                  <h4 className="text-xl font-semibold text-gray-900 mb-2">Register as Patient</h4>
+                  <p className="text-sm text-gray-600">
+                    Quick registration to book appointments and access healthcare services
+                  </p>
+                </button>
+              </div>
+
+              <div className="text-center mt-6">
+                <p className="text-sm text-gray-600">
+                  Already have an account?{' '}
+                  <Link to="/login" className="font-medium text-primary-600 hover:text-primary-500">
+                    Login here
+                  </Link>
+                </p>
+              </div>
+            </div>
+          )}
+
           <form onSubmit={handleSubmit}>
-            {/* Step 1: Personal Information */}
-            {step === 1 && (
+            {/* Patient Registration Form */}
+            {userType === 'patient' && step === 1 && (
+              <div className="space-y-6">
+                <h3 className="text-lg font-medium text-gray-900 mb-4">Patient Information</h3>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Full Name</label>
+                  <input
+                    type="text"
+                    name="fullName"
+                    value={formData.fullName}
+                    onChange={handleChange}
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+                    required
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Age</label>
+                    <input
+                      type="number"
+                      name="age"
+                      value={formData.age}
+                      onChange={handleChange}
+                      min="0"
+                      max="150"
+                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Gender</label>
+                    <select
+                      name="gender"
+                      value={formData.gender}
+                      onChange={handleChange}
+                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+                      required
+                    >
+                      <option value="">Select Gender</option>
+                      <option value="Male">Male</option>
+                      <option value="Female">Female</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Email Address</label>
+                  <input
+                    type="email"
+                    name="email"
+                    value={formData.email}
+                    onChange={handleChange}
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+                    required
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Password</label>
+                    <input
+                      type="password"
+                      name="password"
+                      value={formData.password}
+                      onChange={handleChange}
+                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Confirm Password</label>
+                    <input
+                      type="password"
+                      name="confirmPassword"
+                      value={formData.confirmPassword}
+                      onChange={handleChange}
+                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="flex justify-between pt-4">
+                  <button
+                    type="button"
+                    onClick={() => setStep(0)}
+                    className="px-6 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+                  >
+                    Back
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="px-6 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 disabled:opacity-50"
+                  >
+                    {loading ? 'Registering...' : 'Register'}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Doctor Registration - Step 1: Personal Information */}
+            {userType === 'doctor' && step === 1 && (
               <div className="space-y-6">
                 <h3 className="text-lg font-medium text-gray-900 mb-4">Personal Information</h3>
                 
@@ -502,18 +708,27 @@ const Register = () => {
                   </div>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={handleNext}
-                  className="w-full py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
-                >
-                  Next
-                </button>
+                <div className="flex gap-4">
+                  <button
+                    type="button"
+                    onClick={() => setStep(0)}
+                    className="flex-1 py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+                  >
+                    Back
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleNext}
+                    className="flex-1 py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+                  >
+                    Next
+                  </button>
+                </div>
               </div>
             )}
 
-            {/* Step 2: Professional Information */}
-            {step === 2 && (
+            {/* Doctor Registration - Step 2: Professional Information */}
+            {userType === 'doctor' && step === 2 && (
               <div className="space-y-6">
                 <h3 className="text-lg font-medium text-gray-900 mb-4">Professional Information</h3>
 
@@ -574,8 +789,8 @@ const Register = () => {
               </div>
             )}
 
-            {/* Step 3: Biometric Enrollment */}
-            {step === 3 && (
+            {/* Doctor Registration - Step 3: Biometric Enrollment */}
+            {userType === 'doctor' && step === 3 && (
               <div className="space-y-6">
                 <div className="text-center mb-6">
                   <h3 className="text-xl font-bold text-gray-900 mb-2">Biometric Enrollment</h3>

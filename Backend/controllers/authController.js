@@ -1,4 +1,5 @@
 import Doctor from '../models/Doctor.js';
+import Patient from '../models/Patient.js';
 import { generateToken } from '../middleware/auth.js';
 import mlService from '../services/mlService.js';
 import fs from 'fs';
@@ -209,7 +210,7 @@ export const register = async (req, res) => {
           biometricData: doctor.biometricData
         },
         biometricResults,
-        token: generateToken(doctor._id)
+        token: generateToken(doctor._id, 'doctor')
       }
     });
   } catch (error) {
@@ -222,12 +223,62 @@ export const register = async (req, res) => {
   }
 };
 
-// @desc    Login doctor
+// @desc    Register a new patient
+// @route   POST /api/auth/register-patient
+// @access  Public
+export const registerPatient = async (req, res) => {
+  try {
+    const { fullName, age, gender, email, password } = req.body;
+
+    // Check if patient already exists
+    const patientExists = await Patient.findOne({ email });
+
+    if (patientExists) {
+      return res.status(400).json({
+        success: false,
+        message: 'Patient with this email already exists'
+      });
+    }
+
+    // Create patient
+    const patient = await Patient.create({
+      fullName,
+      age,
+      gender,
+      email,
+      password
+    });
+
+    res.status(201).json({
+      success: true,
+      message: 'Patient registered successfully',
+      data: {
+        patient: {
+          id: patient._id,
+          fullName: patient.fullName,
+          age: patient.age,
+          gender: patient.gender,
+          email: patient.email
+        },
+        token: generateToken(patient._id, 'patient')
+      }
+    });
+  } catch (error) {
+    console.error('Patient registration error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error during patient registration',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Login (Doctor, Patient, or Admin)
 // @route   POST /api/auth/login
 // @access  Public
 export const login = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email, password, userType } = req.body;
 
     // Validate input
     if (!email || !password) {
@@ -237,47 +288,105 @@ export const login = async (req, res) => {
       });
     }
 
-    // Check for doctor (include password for comparison)
+    // Check for admin login
+    if (email === 'admin@gmail.com' && password === 'admin') {
+      return res.json({
+        success: true,
+        message: 'Admin login successful',
+        data: {
+          user: {
+            id: 'admin',
+            email: 'admin@gmail.com',
+            role: 'admin',
+            fullName: 'Administrator'
+          },
+          token: generateToken('admin', 'admin'),
+          role: 'admin'
+        }
+      });
+    }
+
+    // Try to find user as doctor first
     const doctor = await Doctor.findOne({ email }).select('+password');
 
-    if (!doctor) {
-      return res.status(401).json({
-        success: false,
-        message: 'Invalid credentials'
-      });
-    }
+    if (doctor) {
+      // Check password
+      const isMatch = await doctor.comparePassword(password);
 
-    // Check password
-    const isMatch = await doctor.comparePassword(password);
-
-    if (!isMatch) {
-      return res.status(401).json({
-        success: false,
-        message: 'Invalid credentials'
-      });
-    }
-
-    // Update last login
-    doctor.lastLogin = new Date();
-    await doctor.save();
-
-    res.json({
-      success: true,
-      message: 'Login successful',
-      data: {
-        doctor: {
-          id: doctor._id,
-          firstName: doctor.firstName,
-          lastName: doctor.lastName,
-          email: doctor.email,
-          medicalLicenseNumber: doctor.medicalLicenseNumber,
-          specialization: doctor.specialization,
-          yearsOfExperience: doctor.yearsOfExperience,
-          biometricData: doctor.biometricData
-        },
-        token: generateToken(doctor._id)
+      if (!isMatch) {
+        return res.status(401).json({
+          success: false,
+          message: 'Invalid credentials'
+        });
       }
+
+      // Update last login
+      doctor.lastLogin = new Date();
+      await doctor.save();
+
+      return res.json({
+        success: true,
+        message: 'Doctor login successful',
+        data: {
+          user: {
+            id: doctor._id,
+            firstName: doctor.firstName,
+            lastName: doctor.lastName,
+            email: doctor.email,
+            medicalLicenseNumber: doctor.medicalLicenseNumber,
+            specialization: doctor.specialization,
+            yearsOfExperience: doctor.yearsOfExperience,
+            biometricData: doctor.biometricData,
+            role: 'doctor'
+          },
+          token: generateToken(doctor._id, 'doctor'),
+          role: 'doctor'
+        }
+      });
+    }
+
+    // Try to find user as patient
+    const patient = await Patient.findOne({ email }).select('+password');
+
+    if (patient) {
+      // Check password
+      const isMatch = await patient.comparePassword(password);
+
+      if (!isMatch) {
+        return res.status(401).json({
+          success: false,
+          message: 'Invalid credentials'
+        });
+      }
+
+      // Update last login
+      patient.lastLogin = new Date();
+      await patient.save();
+
+      return res.json({
+        success: true,
+        message: 'Patient login successful',
+        data: {
+          user: {
+            id: patient._id,
+            fullName: patient.fullName,
+            age: patient.age,
+            gender: patient.gender,
+            email: patient.email,
+            role: 'patient'
+          },
+          token: generateToken(patient._id, 'patient'),
+          role: 'patient'
+        }
+      });
+    }
+
+    // No user found
+    return res.status(401).json({
+      success: false,
+      message: 'Invalid credentials'
     });
+
   } catch (error) {
     console.error('Login error:', error);
     res.status(500).json({

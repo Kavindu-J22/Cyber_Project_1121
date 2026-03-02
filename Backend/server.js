@@ -8,6 +8,7 @@ import { Server } from 'socket.io';
 import connectDB from './config/db.js';
 import authRoutes from './routes/authRoutes.js';
 import doctorRoutes from './routes/doctorRoutes.js';
+import patientRoutes from './routes/patientRoutes.js';
 import sessionRoutes from './routes/sessionRoutes.js';
 import verificationRoutes from './routes/verificationRoutes.js';
 import Session from './models/Session.js';
@@ -45,6 +46,7 @@ app.use(express.urlencoded({ extended: true }));
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/doctors', doctorRoutes);
+app.use('/api/patients', patientRoutes);
 app.use('/api/sessions', sessionRoutes);
 app.use('/api/verification', verificationRoutes);
 

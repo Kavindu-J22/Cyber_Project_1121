@@ -1,8 +1,8 @@
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
-const PrivateRoute = ({ children }) => {
-  const { user, loading } = useAuth();
+const PrivateRoute = ({ children, allowedRoles = [] }) => {
+  const { user, userRole, loading } = useAuth();
 
   if (loading) {
     return (
@@ -12,7 +12,24 @@ const PrivateRoute = ({ children }) => {
     );
   }
 
-  return user ? children : <Navigate to="/login" />;
+  if (!user) {
+    return <Navigate to="/login" />;
+  }
+
+  // Check if user has the required role
+  if (allowedRoles.length > 0 && !allowedRoles.includes(userRole)) {
+    // Redirect to appropriate dashboard based on role
+    if (userRole === 'admin') {
+      return <Navigate to="/admin-dashboard" />;
+    } else if (userRole === 'patient') {
+      return <Navigate to="/patient-dashboard" />;
+    } else if (userRole === 'doctor') {
+      return <Navigate to="/dashboard" />;
+    }
+    return <Navigate to="/login" />;
+  }
+
+  return children;
 };
 
 export default PrivateRoute;
