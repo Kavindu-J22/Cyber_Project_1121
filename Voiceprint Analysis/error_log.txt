@@ -1,0 +1,55 @@
+﻿python : C:\Users\DELL\AppData\Local\Programs\Python\Python310\lib\inspect.py:869: UserWarning: Module 'speechbrain.pretrained' was 
+deprecated, redirecting to 'speechbrain.inference'. Please update your script. This is a change from SpeechBrain 1.0. See: 
+https://github.com/speechbrain/speechbrain/releases/tag/v1.0.0
+At line:1 char:90
++ ... tf-8" ; .\venv\Scripts\Activate.ps1 ; python main.py api 2>&1 | Out-F ...
++                                           ~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (C:\Users\DELL\A...ases/tag/v1.0.0:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+  if ismodule(module) and hasattr(module, '__file__'):
+INFO:     Started server process [21344]
+INFO:     Waiting for application startup.
+INFO:src.api:Initializing Voiceprint Analysis System...
+INFO:speechbrain.utils.fetching:Fetch hyperparams.yaml: Using file found at 'F:\Cyber_Project_1121\Voiceprint 
+Analysis\models\pretrained\ecapa_tdnn\hyperparams.yaml'
+INFO:speechbrain.utils.fetching:Fetch custom.py: Fetching from HuggingFace Hub 'speechbrain/spkrec-ecapa-voxceleb' if not cached
+ERROR:src.api:Failed to initialize models: Failed to load ECAPA-TDNN model: hf_hub_download() got an unexpected keyword argument 
+'use_auth_token'
+ERROR:    Traceback (most recent call last):
+  File "F:\Cyber_Project_1121\Voiceprint Analysis\src\speaker_embedding.py", line 47, in _load_model
+    self.model = EncoderClassifier.from_hparams(
+  File "F:\Cyber_Project_1121\Voiceprint Analysis\venv\lib\site-packages\speechbrain\inference\interfaces.py", line 489, in from_hparams
+    pymodule_local_path = fetch(
+  File "F:\Cyber_Project_1121\Voiceprint Analysis\venv\lib\site-packages\speechbrain\utils\fetching.py", line 387, in fetch
+    fetched_file = huggingface_hub.hf_hub_download(
+  File "F:\Cyber_Project_1121\Voiceprint Analysis\venv\lib\site-packages\huggingface_hub\utils\_validators.py", line 89, in _inner_fn
+    return fn(*args, **kwargs)
+TypeError: hf_hub_download() got an unexpected keyword argument 'use_auth_token'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "F:\Cyber_Project_1121\Voiceprint Analysis\venv\lib\site-packages\starlette\routing.py", line 677, in lifespan
+    async with self.lifespan_context(app) as maybe_state:
+  File "F:\Cyber_Project_1121\Voiceprint Analysis\venv\lib\site-packages\starlette\routing.py", line 566, in __aenter__
+    await self._router.startup()
+  File "F:\Cyber_Project_1121\Voiceprint Analysis\venv\lib\site-packages\starlette\routing.py", line 654, in startup
+    await handler()
+  File "F:\Cyber_Project_1121\Voiceprint Analysis\src\api.py", line 65, in startup_event
+    verification_engine = SpeakerVerificationEngine(config)
+  File "F:\Cyber_Project_1121\Voiceprint Analysis\src\speaker_verification.py", line 21, in __init__
+    self.embedding_model = SpeakerEmbeddingModel(config)
+  File "F:\Cyber_Project_1121\Voiceprint Analysis\src\speaker_embedding.py", line 24, in __init__
+    self._load_model()
+  File "F:\Cyber_Project_1121\Voiceprint Analysis\src\speaker_embedding.py", line 68, in _load_model
+    raise RuntimeError(f"Failed to load ECAPA-TDNN model: {str(e)}")
+RuntimeError: Failed to load ECAPA-TDNN model: hf_hub_download() got an unexpected keyword argument 'use_auth_token'
+
+ERROR:    Application startup failed. Exiting.
+
+≡ƒÜÇ Starting Voiceprint Analysis API Server...
+   Host: 0.0.0.0
+   Port: 8001
+   Docs: http://localhost:8001/docs
+

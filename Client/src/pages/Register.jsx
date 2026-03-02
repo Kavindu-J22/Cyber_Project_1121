@@ -95,57 +95,95 @@ const Register = () => {
   const startFaceCapture = async () => {
     try {
       setCameraReady(false);
+      setIsCameraActive(false);
+
+      // Set isCapturingFace to true first to render the video element
+      setIsCapturingFace(true);
+
+      // Wait for next render cycle so video element is in DOM
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // Now check if video element exists
+      if (!videoRef.current) {
+        toast.error('Video element not found. Please try again.');
+        setIsCapturingFace(false);
+        return;
+      }
+
+      console.log('Starting camera...');
       const started = await faceCapture.current.startCamera(videoRef.current);
+
       if (started) {
         setIsCameraActive(true);
-        setIsCapturingFace(true);
-        
+        console.log('Camera stream started successfully');
+
         // Wait for video to be ready and playing
-        if (videoRef.current) {
-          await new Promise((resolve) => {
-            const checkReady = () => {
-              if (videoRef.current && videoRef.current.readyState >= 2) {
-                setCameraReady(true);
-                resolve();
-              } else if (videoRef.current) {
-                videoRef.current.onloadedmetadata = () => {
-                  setCameraReady(true);
-                  resolve();
-                };
-                // Safety timeout - mark as ready after 2 seconds anyway
-                setTimeout(() => {
-                  setCameraReady(true);
-                  resolve();
-                }, 2000);
-              } else {
-                resolve();
-              }
-            };
-            
-            // Try to play the video
-            if (videoRef.current) {
-              videoRef.current.play().then(() => {
-                checkReady();
-              }).catch(err => {
-                console.warn('Video autoplay prevented:', err);
-                checkReady();
-              });
-            } else {
-              checkReady();
+        await new Promise((resolve) => {
+          const video = videoRef.current;
+
+          if (!video) {
+            console.error('Video element disappeared');
+            resolve();
+            return;
+          }
+
+          const markReady = () => {
+            console.log('Camera ready! Video dimensions:', video.videoWidth, 'x', video.videoHeight);
+            setCameraReady(true);
+            resolve();
+          };
+
+          // Check if video is already ready
+          if (video.readyState >= 3 && video.videoWidth > 0) {
+            console.log('Video already ready');
+            markReady();
+            return;
+          }
+
+          // Set up event listeners
+          const onLoadedMetadata = () => {
+            console.log('Video metadata loaded');
+            if (video.videoWidth > 0) {
+              markReady();
             }
-          });
-          
-          // Give it a moment to start displaying
-          await new Promise(resolve => setTimeout(resolve, 500));
-        }
-        
+          };
+
+          const onLoadedData = () => {
+            console.log('Video data loaded, readyState:', video.readyState);
+            if (video.readyState >= 2 && video.videoWidth > 0) {
+              markReady();
+            }
+          };
+
+          const onCanPlay = () => {
+            console.log('Video can play');
+            markReady();
+          };
+
+          video.addEventListener('loadedmetadata', onLoadedMetadata, { once: true });
+          video.addEventListener('loadeddata', onLoadedData, { once: true });
+          video.addEventListener('canplay', onCanPlay, { once: true });
+
+          // Safety timeout - mark as ready after 3 seconds anyway
+          setTimeout(() => {
+            console.log('Camera ready timeout triggered');
+            setCameraReady(true);
+            resolve();
+          }, 3000);
+        });
+
         toast.success('📷 Camera activated! Wait for the green indicator, then capture.');
       } else {
         toast.error('Failed to access camera. Please check permissions.');
+        setIsCapturingFace(false);
+        setIsCameraActive(false);
       }
     } catch (error) {
       console.error('Camera start error:', error);
       toast.error('Failed to start camera. Please check permissions.');
+      setIsCapturingFace(false);
+      setIsCameraActive(false);
+      setCameraReady(false);
     }
   };
 

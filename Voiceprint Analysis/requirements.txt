@@ -16,7 +16,7 @@ pydub==0.25.1
 noisereduce==3.0.0
 
 # Feature Extraction
-numpy>=1.26.0
+numpy<2.0.0
 scipy>=1.11.4
 
 # FastAPI and Web Framework

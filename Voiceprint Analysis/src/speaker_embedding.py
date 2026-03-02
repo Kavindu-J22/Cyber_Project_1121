@@ -8,7 +8,7 @@ import torchaudio
 import numpy as np
 from typing import Union, List
 from pathlib import Path
-from speechbrain.pretrained import EncoderClassifier
+from speechbrain.inference.speaker import EncoderClassifier
 
 from src.config_loader import get_config
 

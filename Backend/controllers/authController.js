@@ -54,13 +54,13 @@ export const register = async (req, res) => {
     };
 
     // Enroll voice if audio files provided (expecting 3 samples)
-    if (req.files && req.files.length > 0) {
+    if (req.files && req.files.voiceSamples && req.files.voiceSamples.length > 0) {
       let convertedPaths = [];
       try {
-        console.log(`Enrolling voice for doctor ${doctor._id}... (${req.files.length} samples)`);
+        console.log(`Enrolling voice for doctor ${doctor._id}... (${req.files.voiceSamples.length} samples)`);
 
         // Get all file paths
-        const audioFilePaths = req.files.map(file => file.path);
+        const audioFilePaths = req.files.voiceSamples.map(file => file.path);
 
         // Convert to WAV format if needed (fallback if frontend conversion fails)
         console.log('Converting audio files to WAV format...');
@@ -91,8 +91,8 @@ export const register = async (req, res) => {
             }
           });
         }
-        if (req.files && req.files.length > 0) {
-          req.files.forEach(file => {
+        if (req.files && req.files.voiceSamples && req.files.voiceSamples.length > 0) {
+          req.files.voiceSamples.forEach(file => {
             if (file.path && fs.existsSync(file.path)) {
               fs.unlinkSync(file.path);
             }
@@ -142,26 +142,41 @@ export const register = async (req, res) => {
     }
 
     // Enroll face pattern (if face images provided)
-    if (facePattern) {
+    if (req.files && req.files.faceImages && req.files.faceImages.length > 0) {
       try {
-        console.log(`Enrolling face for doctor ${doctor._id}...`);
-        const faceData = JSON.parse(facePattern);
-        console.log(`Face images: ${faceData.length}`);
-        
-        // faceData should be an array of base64 images or file  &&
-                                  biometricResults.face.successpaths
-        // For now, assuming file paths are provided
+        console.log(`Enrolling face for doctor ${doctor._id}... (${req.files.faceImages.length} samples)`);
+
+        // Get all face image file paths
+        const faceImagePaths = req.files.faceImages.map(file => file.path);
+        console.log(`Face image paths: ${faceImagePaths.join(', ')}`);
+
+        // Enroll face with image files
         const faceResult = await mlService.enrollFace(
           doctor._id.toString(),
-          faceData
+          faceImagePaths
         );
         doctor.biometricData.faceEnrolled = true;
         doctor.biometricData.faceProfile = doctor._id.toString();
         biometricResults.face.success = true;
         console.log('✓ Face enrollment successful');
+
+        // Clean up uploaded face images
+        faceImagePaths.forEach(path => {
+          if (fs.existsSync(path)) {
+            fs.unlinkSync(path);
+          }
+        });
       } catch (error) {
         console.error('✗ Face enrollment failed:', error.message);
         biometricResults.face.error = error.message;
+        // Clean up uploaded files even on error
+        if (req.files && req.files.faceImages && req.files.faceImages.length > 0) {
+          req.files.faceImages.forEach(file => {
+            if (file.path && fs.existsSync(file.path)) {
+              fs.unlinkSync(file.path);
+            }
+          });
+        }
       }
     }
 
@@ -172,7 +187,8 @@ export const register = async (req, res) => {
     // Determine overall success message
     const allBiometricsSuccess = biometricResults.voice.success &&
                                   biometricResults.keystroke.success &&
-                                  biometricResults.mouse.success;
+                                  biometricResults.mouse.success &&
+                                  biometricResults.face.success;
 
     const message = allBiometricsSuccess
       ? 'Doctor registered successfully with all biometric enrollments'

@@ -6,6 +6,22 @@ import os
 import argparse
 from pathlib import Path
 
+# Fix Windows console encoding for emoji support
+import os as _os
+_os.environ.setdefault('PYTHONIOENCODING', 'utf-8')
+if sys.platform == 'win32':
+    try:
+        # Python 3.7+ reconfigure
+        if hasattr(sys.stdout, 'reconfigure'):
+            sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+            sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+        else:
+            import codecs
+            sys.stdout = codecs.getwriter('utf-8')(sys.stdout.buffer, 'replace')
+            sys.stderr = codecs.getwriter('utf-8')(sys.stderr.buffer, 'replace')
+    except Exception:
+        pass  # If reconfigure fails, continue without emoji support
+
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent))
 
