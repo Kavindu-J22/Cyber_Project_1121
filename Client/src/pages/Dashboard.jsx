@@ -3,12 +3,14 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
 import toast from 'react-hot-toast';
-import { Shield, Video, LogOut, Activity, CheckCircle, XCircle, User } from 'lucide-react';
+import { Shield, Video, LogOut, Activity, CheckCircle, XCircle, User, ClipboardList } from 'lucide-react';
+import DoctorAppointments from '../components/DoctorAppointments';
 
 const Dashboard = () => {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   const [mlHealth, setMlHealth] = useState({ face: false, voice: false, keystroke: false, mouse: false });
+  const [activeTab, setActiveTab] = useState('dashboard'); // 'dashboard' or 'appointments'
 
   useEffect(() => {
     checkMLHealth();
@@ -84,8 +86,39 @@ const Dashboard = () => {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* ML Services Status */}
-        <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
+        {/* Tabs */}
+        <div className="mb-6 border-b border-gray-200">
+          <div className="flex gap-4">
+            <button
+              onClick={() => setActiveTab('dashboard')}
+              className={`flex items-center px-4 py-3 font-medium text-sm border-b-2 transition-colors ${
+                activeTab === 'dashboard'
+                  ? 'border-primary-600 text-primary-600'
+                  : 'border-transparent text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <Shield className="h-5 w-5 mr-2" />
+              Dashboard
+            </button>
+            <button
+              onClick={() => setActiveTab('appointments')}
+              className={`flex items-center px-4 py-3 font-medium text-sm border-b-2 transition-colors ${
+                activeTab === 'appointments'
+                  ? 'border-primary-600 text-primary-600'
+                  : 'border-transparent text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <ClipboardList className="h-5 w-5 mr-2" />
+              Appointments
+            </button>
+          </div>
+        </div>
+
+        {/* Tab Content */}
+        {activeTab === 'dashboard' ? (
+          <>
+            {/* ML Services Status */}
+            <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
           <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
             <Activity className="h-5 w-5 mr-2 text-primary-600" />
             ML Services Status
@@ -169,8 +202,11 @@ const Dashboard = () => {
             Start Consultation
           </button>
         </div>
-
-
+          </>
+        ) : (
+          /* Appointments Tab */
+          <DoctorAppointments />
+        )}
       </main>
     </div>
   );

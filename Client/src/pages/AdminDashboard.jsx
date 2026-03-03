@@ -3,8 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
 import toast from 'react-hot-toast';
-import { Shield, LogOut, Users, Stethoscope, Mail, Award, Briefcase, User as UserIcon, Search, Filter, Eye, Edit, Trash2, UserX, UserCheck2 } from 'lucide-react';
+import { Shield, LogOut, Users, Stethoscope, Mail, Award, Briefcase, User as UserIcon, Search, Filter, Eye, Edit, Trash2, UserX, UserCheck2, ClipboardList } from 'lucide-react';
 import AdminDoctorModal from '../components/AdminDoctorModal';
+import AdminAppointments from '../components/AdminAppointments';
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
@@ -12,7 +13,7 @@ const AdminDashboard = () => {
   const [doctors, setDoctors] = useState([]);
   const [patients, setPatients] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('doctors'); // 'doctors' or 'patients'
+  const [activeTab, setActiveTab] = useState('doctors'); // 'doctors', 'patients', or 'appointments'
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSpecialization, setSelectedSpecialization] = useState('all');
   const [selectedDoctor, setSelectedDoctor] = useState(null);
@@ -164,6 +165,17 @@ const AdminDashboard = () => {
               >
                 <Users className="inline h-5 w-5 mr-2" />
                 Patients ({patients.length})
+              </button>
+              <button
+                onClick={() => setActiveTab('appointments')}
+                className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
+                  activeTab === 'appointments'
+                    ? 'border-primary-600 text-primary-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                <ClipboardList className="inline h-5 w-5 mr-2" />
+                Appointments
               </button>
             </nav>
           </div>
@@ -351,6 +363,11 @@ const AdminDashboard = () => {
                       </div>
                     )}
                   </div>
+                )}
+
+                {/* Appointments Tab */}
+                {activeTab === 'appointments' && (
+                  <AdminAppointments />
                 )}
               </>
             )}

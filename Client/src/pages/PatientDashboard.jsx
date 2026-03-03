@@ -3,8 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
 import toast from 'react-hot-toast';
-import { User, Calendar, LogOut, Stethoscope, Mail, Award, Briefcase, Eye, Search, Filter } from 'lucide-react';
+import { User, Calendar, LogOut, Stethoscope, Mail, Award, Briefcase, Eye, Search, Filter, ClipboardList } from 'lucide-react';
 import DoctorDetailsModal from '../components/DoctorDetailsModal';
+import BookAppointmentModal from '../components/BookAppointmentModal';
+import MyAppointments from '../components/MyAppointments';
 
 const PatientDashboard = () => {
   const navigate = useNavigate();
@@ -14,6 +16,8 @@ const PatientDashboard = () => {
   const [selectedDoctor, setSelectedDoctor] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSpecialization, setSelectedSpecialization] = useState('all');
+  const [activeTab, setActiveTab] = useState('doctors'); // 'doctors' or 'appointments'
+  const [bookingDoctor, setBookingDoctor] = useState(null);
 
   useEffect(() => {
     fetchDoctors();
@@ -38,7 +42,11 @@ const PatientDashboard = () => {
   };
 
   const handleBookAppointment = (doctor) => {
-    toast.success(`Appointment booking with Dr. ${doctor.firstName} ${doctor.lastName} - Feature coming soon!`);
+    setBookingDoctor(doctor);
+  };
+
+  const handleAppointmentSuccess = () => {
+    setActiveTab('appointments');
   };
 
   // Get unique specializations for filter
@@ -98,7 +106,37 @@ const PatientDashboard = () => {
           </div>
         </div>
 
-        {/* Doctors List */}
+        {/* Tabs */}
+        <div className="mb-6 border-b border-gray-200">
+          <div className="flex gap-4">
+            <button
+              onClick={() => setActiveTab('doctors')}
+              className={`flex items-center px-4 py-3 font-medium text-sm border-b-2 transition-colors ${
+                activeTab === 'doctors'
+                  ? 'border-primary-600 text-primary-600'
+                  : 'border-transparent text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <Stethoscope className="h-5 w-5 mr-2" />
+              Find Doctors
+            </button>
+            <button
+              onClick={() => setActiveTab('appointments')}
+              className={`flex items-center px-4 py-3 font-medium text-sm border-b-2 transition-colors ${
+                activeTab === 'appointments'
+                  ? 'border-primary-600 text-primary-600'
+                  : 'border-transparent text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <ClipboardList className="h-5 w-5 mr-2" />
+              My Appointments
+            </button>
+          </div>
+        </div>
+
+        {/* Tab Content */}
+        {activeTab === 'doctors' ? (
+          /* Doctors List */
         <div className="bg-white rounded-lg shadow p-6">
           <h2 className="text-xl font-semibold text-gray-900 mb-6">Available Doctors</h2>
 
@@ -199,6 +237,10 @@ const PatientDashboard = () => {
             </div>
           )}
         </div>
+        ) : (
+          /* My Appointments */
+          <MyAppointments />
+        )}
       </main>
 
       {/* Doctor Details Modal */}
@@ -206,6 +248,15 @@ const PatientDashboard = () => {
         <DoctorDetailsModal
           doctor={selectedDoctor}
           onClose={() => setSelectedDoctor(null)}
+        />
+      )}
+
+      {/* Book Appointment Modal */}
+      {bookingDoctor && (
+        <BookAppointmentModal
+          doctor={bookingDoctor}
+          onClose={() => setBookingDoctor(null)}
+          onSuccess={handleAppointmentSuccess}
         />
       )}
     </div>
