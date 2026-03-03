@@ -178,10 +178,10 @@ const AdminAppointments = () => {
                 <div>
                   <p className="text-sm font-medium text-gray-700 mb-1">Doctor:</p>
                   <p className="text-sm text-gray-900 font-medium">
-                    Dr. {apt.doctorId.firstName} {apt.doctorId.lastName}
+                    Dr. {apt.doctorId?.firstName ?? 'Unknown'} {apt.doctorId?.lastName ?? ''}
                   </p>
-                  <p className="text-xs text-gray-600">{apt.doctorId.specialization}</p>
-                  <p className="text-xs text-gray-600">{apt.doctorId.email}</p>
+                  <p className="text-xs text-gray-600">{apt.doctorId?.specialization ?? ''}</p>
+                  <p className="text-xs text-gray-600">{apt.doctorId?.email ?? ''}</p>
                 </div>
               </div>
 

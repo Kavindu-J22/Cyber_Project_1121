@@ -133,6 +133,10 @@ const ScheduledConsultations = () => {
     );
   }
 
+  // Separate active/upcoming consultations from ended ones
+  const activeConsultations = consultations.filter(c => c.consultation?.status !== 'Completed');
+  const endedConsultations = consultations.filter(c => c.consultation?.status === 'Completed');
+
   if (consultations.length === 0) {
     return (
       <div className="text-center py-12">
@@ -145,8 +149,65 @@ const ScheduledConsultations = () => {
     );
   }
 
+  const renderConsultationCard = ({ appointment, consultation, timeStatus }) => (
+    <div
+      key={appointment._id}
+      className="bg-white border-l-4 border-primary-400 rounded-lg shadow-sm p-6"
+    >
+      {/* Header */}
+      <div className="flex justify-between items-start mb-4">
+        <div>
+          <h3 className="text-lg font-bold text-gray-900">{appointment.appointmentNumber}</h3>
+          <p className="text-sm text-gray-600">{appointment.patientId.fullName}</p>
+          <p className="text-xs text-gray-500">
+            Age: {appointment.patientId.age} | Gender: {appointment.patientId.gender}
+          </p>
+        </div>
+        <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
+          <CheckCircle className="h-4 w-4 mr-1" />
+          Approved
+        </span>
+      </div>
+
+      {/* Consultation Details */}
+      <div className="grid grid-cols-2 gap-4 mb-4 pb-4 border-b border-gray-200">
+        <div className="flex items-center text-gray-700">
+          <Calendar className="h-5 w-5 mr-2 text-primary-600" />
+          <div>
+            <p className="text-xs text-gray-500">Date</p>
+            <p className="text-sm font-medium">{formatDate(appointment.appointmentDate)}</p>
+          </div>
+        </div>
+        <div className="flex items-center text-gray-700">
+          <Clock className="h-5 w-5 mr-2 text-primary-600" />
+          <div>
+            <p className="text-xs text-gray-500">Time</p>
+            <p className="text-sm font-medium">
+              {appointment.appointmentTimeFrom} - {appointment.appointmentTimeTo}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Patient Info */}
+      <div className="mb-4">
+        <p className="text-sm font-medium text-gray-700 mb-1">Patient Email:</p>
+        <p className="text-sm text-gray-600">{appointment.patientId.email}</p>
+      </div>
+
+      {/* Reason */}
+      <div className="mb-4">
+        <p className="text-sm font-medium text-gray-700 mb-1">Reason for Consultation:</p>
+        <p className="text-sm text-gray-600">{appointment.reason}</p>
+      </div>
+
+      {/* Action Button */}
+      {getButtonContent({ appointment, consultation, timeStatus })}
+    </div>
+  );
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
         <div className="flex items-start">
           <AlertCircle className="h-5 w-5 text-blue-600 mt-0.5 mr-3 flex-shrink-0" />
@@ -162,62 +223,40 @@ const ScheduledConsultations = () => {
         </div>
       </div>
 
-      {consultations.map(({ appointment, consultation, timeStatus }) => (
-        <div
-          key={appointment._id}
-          className="bg-white border-l-4 border-primary-400 rounded-lg shadow-sm p-6"
-        >
-          {/* Header */}
-          <div className="flex justify-between items-start mb-4">
-            <div>
-              <h3 className="text-lg font-bold text-gray-900">{appointment.appointmentNumber}</h3>
-              <p className="text-sm text-gray-600">{appointment.patientId.fullName}</p>
-              <p className="text-xs text-gray-500">
-                Age: {appointment.patientId.age} | Gender: {appointment.patientId.gender}
-              </p>
-            </div>
-            <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
-              <CheckCircle className="h-4 w-4 mr-1" />
-              Approved
-            </span>
+      {/* Active/Upcoming Consultations */}
+      {activeConsultations.length > 0 && (
+        <div>
+          <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+            <Video className="h-6 w-6 text-primary-600" />
+            Active & Upcoming Consultations
+            <span className="text-sm font-normal text-gray-500">({activeConsultations.length})</span>
+          </h2>
+          <div className="space-y-6">
+            {activeConsultations.map(renderConsultationCard)}
           </div>
-
-          {/* Consultation Details */}
-          <div className="grid grid-cols-2 gap-4 mb-4 pb-4 border-b border-gray-200">
-            <div className="flex items-center text-gray-700">
-              <Calendar className="h-5 w-5 mr-2 text-primary-600" />
-              <div>
-                <p className="text-xs text-gray-500">Date</p>
-                <p className="text-sm font-medium">{formatDate(appointment.appointmentDate)}</p>
-              </div>
-            </div>
-            <div className="flex items-center text-gray-700">
-              <Clock className="h-5 w-5 mr-2 text-primary-600" />
-              <div>
-                <p className="text-xs text-gray-500">Time</p>
-                <p className="text-sm font-medium">
-                  {appointment.appointmentTimeFrom} - {appointment.appointmentTimeTo}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Patient Info */}
-          <div className="mb-4">
-            <p className="text-sm font-medium text-gray-700 mb-1">Patient Email:</p>
-            <p className="text-sm text-gray-600">{appointment.patientId.email}</p>
-          </div>
-
-          {/* Reason */}
-          <div className="mb-4">
-            <p className="text-sm font-medium text-gray-700 mb-1">Reason for Consultation:</p>
-            <p className="text-sm text-gray-600">{appointment.reason}</p>
-          </div>
-
-          {/* Action Button */}
-          {getButtonContent({ appointment, consultation, timeStatus })}
         </div>
-      ))}
+      )}
+
+      {/* Ended Consultations */}
+      {endedConsultations.length > 0 && (
+        <div>
+          <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+            <CheckCircle className="h-6 w-6 text-gray-600" />
+            Ended Consultations
+            <span className="text-sm font-normal text-gray-500">({endedConsultations.length})</span>
+          </h2>
+          <div className="space-y-6">
+            {endedConsultations.map(renderConsultationCard)}
+          </div>
+        </div>
+      )}
+
+      {activeConsultations.length === 0 && endedConsultations.length === 0 && (
+        <div className="text-center py-12">
+          <Video className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+          <p className="text-gray-600">No consultations found</p>
+        </div>
+      )}
     </div>
   );
 };
