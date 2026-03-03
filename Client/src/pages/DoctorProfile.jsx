@@ -13,7 +13,6 @@ const DoctorProfile = () => {
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
-    email: '',
     specialization: '',
     yearsOfExperience: '',
     description: '',
@@ -25,7 +24,6 @@ const DoctorProfile = () => {
       setFormData({
         firstName: user.firstName || '',
         lastName: user.lastName || '',
-        email: user.email || '',
         specialization: user.specialization || '',
         yearsOfExperience: user.yearsOfExperience || '',
         description: user.description || '',
@@ -68,11 +66,10 @@ const DoctorProfile = () => {
       const submitData = new FormData();
       submitData.append('firstName', formData.firstName);
       submitData.append('lastName', formData.lastName);
-      submitData.append('email', formData.email);
       submitData.append('specialization', formData.specialization);
       submitData.append('yearsOfExperience', formData.yearsOfExperience);
       submitData.append('description', formData.description);
-      
+
       if (formData.profileImage) {
         submitData.append('profileImage', formData.profileImage);
       }
@@ -164,7 +161,7 @@ const DoctorProfile = () => {
               </div>
             </div>
 
-            {/* Email */}
+            {/* Email - READ ONLY */}
             <div>
               <label className="block text-sm font-medium text-gray-700">
                 <Mail className="inline h-4 w-4 mr-1" />
@@ -172,12 +169,12 @@ const DoctorProfile = () => {
               </label>
               <input
                 type="email"
-                name="email"
-                value={formData.email}
-                onChange={handleChange}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary-500"
-                required
+                value={user?.email || ''}
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 cursor-not-allowed"
+                disabled
+                readOnly
               />
+              <p className="text-xs text-gray-500 mt-1">This field cannot be edited</p>
             </div>
 
             {/* Medical License Number - READ ONLY */}
