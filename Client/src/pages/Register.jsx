@@ -5,6 +5,7 @@ import toast from 'react-hot-toast';
 import { Shield, User, Mail, Lock, FileText, Briefcase, Calendar, Mic, Keyboard, Mouse, CheckCircle, Camera } from 'lucide-react';
 import { KeystrokeCapture, MouseCapture, VoiceCapture, FaceCapture } from '../utils/biometricCapture';
 import HumanVerificationPuzzle from '../components/HumanVerificationPuzzle';
+import OTPVerification from '../components/OTPVerification';
 
 const Register = () => {
   const navigate = useNavigate();
@@ -12,6 +13,8 @@ const Register = () => {
   const [userType, setUserType] = useState(null); // 'doctor' or 'patient'
   const [step, setStep] = useState(0); // 0 = user type selection, 1+ = registration steps
   const [loading, setLoading] = useState(false);
+  const [showOTPVerification, setShowOTPVerification] = useState(false);
+  const [isEmailVerified, setIsEmailVerified] = useState(false);
 
   const [formData, setFormData] = useState({
     // Common fields
@@ -92,6 +95,11 @@ const Register = () => {
           toast.error('Password must be at least 6 characters');
           return;
         }
+        // Show OTP verification before proceeding
+        if (!isEmailVerified) {
+          setShowOTPVerification(true);
+          return;
+        }
       }
 
       if (step === 2) {
@@ -118,10 +126,26 @@ const Register = () => {
           toast.error('Password must be at least 6 characters');
           return;
         }
+        // Show OTP verification before proceeding
+        if (!isEmailVerified) {
+          setShowOTPVerification(true);
+          return;
+        }
       }
     }
 
     setStep(step + 1);
+  };
+
+  const handleOTPVerified = () => {
+    setIsEmailVerified(true);
+    setShowOTPVerification(false);
+    setStep(step + 1);
+    toast.success('Email verified! You can now continue registration.');
+  };
+
+  const handleOTPBack = () => {
+    setShowOTPVerification(false);
   };
 
   const handleBack = () => {
@@ -489,18 +513,31 @@ const Register = () => {
             </div>
           </div>
           <h2 className="mt-6 text-3xl font-extrabold text-gray-900">
-            {step === 0 ? 'Registration' : userType === 'doctor' ? 'Doctor Registration' : 'Patient Registration'}
+            MediConsult
           </h2>
+          <p className="mt-2 text-sm text-gray-600">
+            Zero Trust Secure Telehealth Platform
+          </p>
           {step > 0 && (
-            <p className="mt-2 text-sm text-gray-600">
-              {userType === 'doctor' ? `Step ${step} of 3` : 'Complete Your Profile'}
+            <p className="mt-1 text-xs text-gray-500">
+              {step === 0 ? 'Registration' : userType === 'doctor' ? `Doctor Registration - Step ${step} of 3` : 'Patient Registration - Complete Your Profile'}
             </p>
           )}
         </div>
 
         <div className="bg-white rounded-lg shadow-xl p-8">
+          {/* OTP Verification Modal */}
+          {showOTPVerification && (
+            <OTPVerification
+              email={formData.email}
+              userType={userType}
+              onVerified={handleOTPVerified}
+              onBack={handleOTPBack}
+            />
+          )}
+
           {/* Step 0: User Type Selection */}
-          {step === 0 && (
+          {!showOTPVerification && step === 0 && (
             <div className="space-y-6">
               <h3 className="text-lg font-medium text-gray-900 mb-6 text-center">Choose Registration Type</h3>
 
@@ -541,9 +578,10 @@ const Register = () => {
             </div>
           )}
 
-          <form onSubmit={handleSubmit}>
-            {/* Patient Registration Form */}
-            {userType === 'patient' && step === 1 && (
+          {!showOTPVerification && (
+            <form onSubmit={handleSubmit}>
+              {/* Patient Registration Form */}
+              {userType === 'patient' && step === 1 && (
               <div className="space-y-6">
                 <h3 className="text-lg font-medium text-gray-900 mb-4">Patient Information</h3>
 
@@ -1192,17 +1230,20 @@ const Register = () => {
                   </button>
                 </div>
               </div>
-            )}
-          </form>
+              )}
+            </form>
+          )}
 
-          <div className="mt-6 text-center">
-            <p className="text-sm text-gray-600">
-              Already have an account?{' '}
-              <Link to="/login" className="font-medium text-primary-600 hover:text-primary-500">
-                Sign in here
-              </Link>
-            </p>
-          </div>
+          {!showOTPVerification && (
+            <div className="mt-6 text-center">
+              <p className="text-sm text-gray-600">
+                Already have an account?{' '}
+                <Link to="/login" className="font-medium text-primary-600 hover:text-primary-500">
+                  Sign in here
+                </Link>
+              </p>
+            </div>
+          )}
         </div>
       </div>
     </div>

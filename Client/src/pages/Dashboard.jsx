@@ -53,8 +53,8 @@ const Dashboard = () => {
             <div className="flex items-center">
               <Shield className="h-8 w-8 text-primary-600 mr-3" />
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">Zero Trust Telehealth</h1>
-                <p className="text-sm text-gray-600">Continuous Biometric Authentication</p>
+                <h1 className="text-2xl font-bold text-gray-900">MediConsult</h1>
+                <p className="text-sm text-gray-600">Zero Trust Secure Telehealth Platform</p>
               </div>
             </div>
             <div className="flex items-center gap-4">

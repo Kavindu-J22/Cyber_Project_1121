@@ -11,14 +11,19 @@ import doctorRoutes from './routes/doctorRoutes.js';
 import patientRoutes from './routes/patientRoutes.js';
 import sessionRoutes from './routes/sessionRoutes.js';
 import verificationRoutes from './routes/verificationRoutes.js';
+import otpRoutes from './routes/otpRoutes.js';
 import Session from './models/Session.js';
 import mlService from './services/mlService.js';
+import { verifyEmailConfig } from './utils/emailService.js';
 
 // Load environment variables
 dotenv.config();
 
 // Connect to database
 connectDB();
+
+// Verify email configuration
+verifyEmailConfig();
 
 // Initialize Express app
 const app = express();
@@ -49,6 +54,7 @@ app.use('/api/doctors', doctorRoutes);
 app.use('/api/patients', patientRoutes);
 app.use('/api/sessions', sessionRoutes);
 app.use('/api/verification', verificationRoutes);
+app.use('/api/otp', otpRoutes);
 
 // Health check
 app.get('/api/health', async (req, res) => {
@@ -79,6 +85,7 @@ app.get('/', (req, res) => {
       doctors: '/api/doctors',
       sessions: '/api/sessions',
       verification: '/api/verification',
+      otp: '/api/otp',
       health: '/api/health'
     }
   });

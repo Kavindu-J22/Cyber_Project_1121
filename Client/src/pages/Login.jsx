@@ -67,10 +67,10 @@ const Login = () => {
             </div>
           </div>
           <h2 className="mt-6 text-3xl font-extrabold text-gray-900">
-            Zero Trust Telehealth
+            MediConsult
           </h2>
           <p className="mt-2 text-sm text-gray-600">
-            Continuous Biometric Authentication Platform
+            Zero Trust Secure Telehealth Platform
           </p>
         </div>
 
