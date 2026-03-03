@@ -33,10 +33,10 @@ const ScheduledConsultations = () => {
     try {
       const response = await axios.post(`/api/consultations/doctor/${appointmentId}/start`);
       toast.success('Consultation started! Patient has been notified via email.');
-      
-      // Navigate to consultation room
+
+      // Navigate to meeting room
       const consultationRoomId = response.data.data.consultation.consultationRoomId;
-      window.location.href = `/consultation/${consultationRoomId}`;
+      window.location.href = `/meeting/${consultationRoomId}`;
     } catch (error) {
       console.error('Error starting consultation:', error);
       toast.error(error.response?.data?.message || 'Failed to start consultation');
@@ -54,6 +54,19 @@ const ScheduledConsultations = () => {
 
   const getButtonContent = (consultation) => {
     const { timeStatus, consultation: consult, appointment } = consultation;
+
+    // Check if consultation has ended
+    if (consult?.status === 'Completed') {
+      return (
+        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 text-center">
+          <CheckCircle className="h-8 w-8 text-gray-600 mx-auto mb-2" />
+          <p className="text-gray-800 font-semibold">Consultation Ended</p>
+          <p className="text-sm text-gray-600 mt-1">
+            This consultation has been completed.
+          </p>
+        </div>
+      );
+    }
 
     if (timeStatus.isMissed) {
       return (

@@ -43,8 +43,8 @@ const ConfirmedConsultations = () => {
   };
 
   const handleJoinConsultation = (consultationRoomId) => {
-    // Navigate to consultation room
-    window.location.href = `/consultation/${consultationRoomId}`;
+    // Navigate to meeting room
+    window.location.href = `/meeting/${consultationRoomId}`;
   };
 
   const formatDate = (dateString) => {
@@ -57,6 +57,19 @@ const ConfirmedConsultations = () => {
 
   const getButtonContent = (consultation) => {
     const { timeStatus, consultation: consult, appointment } = consultation;
+
+    // Check if consultation has ended
+    if (consult?.status === 'Completed') {
+      return (
+        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 text-center">
+          <CheckCircle className="h-8 w-8 text-gray-600 mx-auto mb-2" />
+          <p className="text-gray-800 font-semibold">Consultation Ended</p>
+          <p className="text-sm text-gray-600 mt-1">
+            This consultation has been completed.
+          </p>
+        </div>
+      );
+    }
 
     if (timeStatus.isMissed) {
       return (

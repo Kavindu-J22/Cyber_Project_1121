@@ -375,3 +375,47 @@ export const getConsultationStatus = async (req, res) => {
   }
 };
 
+// End consultation (Doctor only)
+export const endConsultation = async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    const doctorId = req.user.id;
+
+    // Find consultation by consultationRoomId
+    const consultation = await Consultation.findOne({ consultationRoomId: sessionId });
+
+    if (!consultation) {
+      return res.status(404).json({
+        success: false,
+        message: 'Consultation not found'
+      });
+    }
+
+    // Verify that the doctor ending the consultation is the assigned doctor
+    if (consultation.doctorId.toString() !== doctorId) {
+      return res.status(403).json({
+        success: false,
+        message: 'You are not authorized to end this consultation'
+      });
+    }
+
+    // Update consultation status to Completed
+    consultation.status = 'Completed';
+    consultation.endedAt = new Date();
+    await consultation.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Consultation ended successfully',
+      data: { consultation }
+    });
+  } catch (error) {
+    console.error('End consultation error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to end consultation',
+      error: error.message
+    });
+  }
+};
+

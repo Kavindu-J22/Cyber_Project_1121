@@ -2,10 +2,11 @@ import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { io } from 'socket.io-client';
+import axios from 'axios';
 import toast from 'react-hot-toast';
-import { 
-  Video, VideoOff, Mic, MicOff, PhoneOff, Shield, 
-  Activity, AlertTriangle, CheckCircle, TrendingUp 
+import {
+  Video, VideoOff, Mic, MicOff, PhoneOff, Shield,
+  Activity, AlertTriangle, CheckCircle, TrendingUp
 } from 'lucide-react';
 import { KeystrokeCapture, MouseCapture } from '../utils/biometricCapture';
 
@@ -13,6 +14,7 @@ const Meeting = () => {
   const { sessionId } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const isDoctor = user?.role === 'doctor';
   
   const [socket, setSocket] = useState(null);
   const [isVideoOn, setIsVideoOn] = useState(true);
@@ -35,7 +37,8 @@ const Meeting = () => {
       console.log('Connected to server');
       newSocket.emit('join-session', {
         sessionId,
-        doctorId: user.id
+        userId: user.id,
+        userRole: user.role
       });
     });
 
@@ -161,23 +164,24 @@ const Meeting = () => {
   };
 
   const endCall = async () => {
+    if (!isDoctor) {
+      toast.error('Only the doctor can end the consultation');
+      return;
+    }
+
     try {
-      await fetch(`/api/sessions/${sessionId}`, {
-        method: 'PUT',
+      // End the consultation via API
+      await axios.put(`/api/consultations/${sessionId}/end`, {}, {
         headers: {
-          'Content-Type': 'application/json',
           'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
-        body: JSON.stringify({
-          status: 'completed',
-          endTime: new Date()
-        })
+        }
       });
-      
-      toast.success('Consultation ended');
+
+      toast.success('Consultation ended successfully');
       navigate('/dashboard');
     } catch (error) {
-      console.error('Failed to end call:', error);
+      console.error('Failed to end consultation:', error);
+      toast.error('Failed to end consultation');
       navigate('/dashboard');
     }
   };

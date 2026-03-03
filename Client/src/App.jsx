@@ -53,7 +53,7 @@ function App() {
           <Route
             path="/meeting/:sessionId"
             element={
-              <PrivateRoute allowedRoles={['doctor']}>
+              <PrivateRoute allowedRoles={['doctor', 'patient']}>
                 <Meeting />
               </PrivateRoute>
             }

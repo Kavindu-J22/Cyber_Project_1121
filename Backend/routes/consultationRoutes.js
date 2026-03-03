@@ -4,7 +4,8 @@ import {
   getDoctorConsultations,
   sendWaitingAlert,
   startConsultation,
-  getConsultationStatus
+  getConsultationStatus,
+  endConsultation
 } from '../controllers/consultationController.js';
 import { protect, restrictTo } from '../middleware/auth.js';
 
@@ -20,6 +21,7 @@ router.post('/patient/:appointmentId/send-alert', restrictTo('patient'), sendWai
 // Doctor routes
 router.get('/doctor/my-consultations', restrictTo('doctor'), getDoctorConsultations);
 router.post('/doctor/:appointmentId/start', restrictTo('doctor'), startConsultation);
+router.put('/:sessionId/end', restrictTo('doctor'), endConsultation);
 
 // Common routes
 router.get('/:appointmentId/status', getConsultationStatus);
