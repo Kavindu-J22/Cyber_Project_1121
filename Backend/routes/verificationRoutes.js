@@ -115,10 +115,14 @@ router.post('/face', protect, upload.single('faceSample'), async (req, res) => {
       });
     }
 
-    const result = await mlService.verifyFace(req.doctor._id.toString(), req.file.path);
-    
+    const rawResult = await mlService.verifyFace(req.doctor._id.toString(), req.file.path);
+
     // Clean up uploaded file
     fs.unlinkSync(req.file.path);
+
+    // Face ML service wraps its own response in { success, data }.
+    // Unwrap it so the backend's wrapper produces a single clean { success, data: <actual result> }.
+    const result = (rawResult && rawResult.data !== undefined) ? rawResult.data : rawResult;
 
     res.json({
       success: true,

@@ -251,20 +251,19 @@ const Meeting = () => {
         verificationInterval.current = setInterval(async () => {
           const token = localStorage.getItem('token');
 
-          // Keystroke
+          // Keystroke — always attempt every 10 s; ML service returns 0.0 when not enrolled
           const kf = keystrokeCapture.current.getFeatures();
-          if (kf.some(f => f !== 0)) {
-            try {
-              const r = await axios.post('/api/verification/keystroke',
-                { keystrokeSample: kf },
-                { headers: { Authorization: `Bearer ${token}` } }
-              );
-              if (mounted) setKeystrokeConf(r.data.data?.confidence ?? null);
-            } catch (e) { console.error('Keystroke verification error:', e); }
-            keystrokeCapture.current.start();
-          }
+          try {
+            const r = await axios.post('/api/verification/keystroke',
+              { keystrokeSample: kf },
+              { headers: { Authorization: `Bearer ${token}` } }
+            );
+            if (mounted) setKeystrokeConf(r.data.data?.confidence ?? null);
+          } catch (e) { console.error('Keystroke verification error:', e); }
+          keystrokeCapture.current.start(); // reset buffer for next window
 
-          // Mouse
+          // Mouse — only reset events buffer after a SUCCESSFUL verification so events
+          // accumulate across intervals until the ML service has enough data (avoids 400 errors)
           const me = mouseCapture.current.getEvents();
           if (me.length > 10) {
             try {
@@ -273,8 +272,9 @@ const Meeting = () => {
                 { headers: { Authorization: `Bearer ${token}` } }
               );
               if (mounted) setMouseConf(r.data.data?.confidence ?? null);
+              mouseCapture.current.start(); // reset only on success
             } catch (e) { console.error('Mouse verification error:', e); }
-            mouseCapture.current.start();
+            // On failure: keep accumulating — do NOT reset
           }
         }, 10000);
 
@@ -867,6 +867,31 @@ const Meeting = () => {
                   </>
                 )}
               </div>
+
+              {/* Overall Trust Score (patient view) */}
+              {(() => {
+                const vals = [doctorScores.face, doctorScores.voice, doctorScores.keystroke, doctorScores.mouse].filter(v => v !== null);
+                if (vals.length === 0) return null;
+                const pct = Math.round(vals.reduce((a, b) => a + b, 0) / vals.length * 100);
+                const color = pct >= 70 ? 'text-green-400' : pct >= 50 ? 'text-yellow-400' : 'text-red-400';
+                const barColor = pct >= 70 ? 'bg-green-500' : pct >= 50 ? 'bg-yellow-500' : 'bg-red-500';
+                const borderColor = pct >= 70 ? 'border-green-700 bg-green-900/30' : pct >= 50 ? 'border-yellow-700 bg-yellow-900/30' : 'border-red-700 bg-red-900/30';
+                return (
+                  <div className={`rounded-lg p-3 border ${borderColor}`}>
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <Shield className="h-4 w-4 text-primary-400" />
+                        <span className="text-sm font-semibold text-white">Overall Trust Score</span>
+                      </div>
+                      <span className={`text-lg font-bold ${color}`}>{pct}%</span>
+                    </div>
+                    <div className="w-full bg-gray-600 rounded-full h-3">
+                      <div className={`h-3 rounded-full transition-all duration-700 ${barColor}`} style={{ width: `${pct}%` }} />
+                    </div>
+                    <p className="text-xs text-gray-400 mt-1">Based on {vals.length} active biometric{vals.length > 1 ? 's' : ''}</p>
+                  </div>
+                );
+              })()}
 
               <div className="p-3 bg-blue-900/30 border border-blue-700 rounded-lg">
                 <p className="text-xs text-blue-300">🔒 Doctor's identity is continuously verified against their registered biometric profile in real time.</p>
