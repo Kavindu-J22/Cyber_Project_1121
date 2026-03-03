@@ -88,7 +88,7 @@ export const getDoctorById = async (req, res) => {
 // @access  Private
 export const updateDoctor = async (req, res) => {
   try {
-    const { firstName, lastName, specialization, yearsOfExperience, description } = req.body;
+    const { firstName, lastName, email, medicalLicenseNumber, specialization, yearsOfExperience, description } = req.body;
 
     const doctor = await Doctor.findById(req.params.id);
 
@@ -102,6 +102,8 @@ export const updateDoctor = async (req, res) => {
     // Update fields
     if (firstName) doctor.firstName = firstName;
     if (lastName) doctor.lastName = lastName;
+    if (email) doctor.email = email;
+    if (medicalLicenseNumber) doctor.medicalLicenseNumber = medicalLicenseNumber;
     if (specialization) doctor.specialization = specialization;
     if (yearsOfExperience !== undefined) doctor.yearsOfExperience = yearsOfExperience;
     if (description !== undefined) doctor.description = description;

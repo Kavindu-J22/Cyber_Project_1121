@@ -10,6 +10,7 @@ const AdminDoctorModal = ({ doctor, onClose, onUpdate, isEditMode = false }) => 
     firstName: '',
     lastName: '',
     email: '',
+    medicalLicenseNumber: '',
     specialization: '',
     yearsOfExperience: '',
     description: ''
@@ -21,6 +22,7 @@ const AdminDoctorModal = ({ doctor, onClose, onUpdate, isEditMode = false }) => 
         firstName: doctor.firstName || '',
         lastName: doctor.lastName || '',
         email: doctor.email || '',
+        medicalLicenseNumber: doctor.medicalLicenseNumber || '',
         specialization: doctor.specialization || '',
         yearsOfExperience: doctor.yearsOfExperience || '',
         description: doctor.description || ''
@@ -148,16 +150,27 @@ const AdminDoctorModal = ({ doctor, onClose, onUpdate, isEditMode = false }) => 
               )}
             </div>
 
-            {/* Medical License Number - READ ONLY */}
+            {/* Medical License Number - Admin can edit */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 <CreditCard className="inline h-4 w-4 mr-1" />
                 Medical License Number
               </label>
-              <p className="text-gray-900 bg-gray-100 p-3 rounded-md border border-gray-300">
-                {doctor.medicalLicenseNumber}
-              </p>
-              <p className="text-xs text-gray-500 mt-1">This field cannot be edited</p>
+              {isEditing ? (
+                <input
+                  type="text"
+                  name="medicalLicenseNumber"
+                  value={formData.medicalLicenseNumber}
+                  onChange={handleChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary-500"
+                  required
+                />
+              ) : (
+                <p className="text-gray-900 bg-gray-50 p-3 rounded-md">{doctor.medicalLicenseNumber}</p>
+              )}
+              {isEditing && (
+                <p className="text-xs text-amber-600 mt-1">⚠️ Admin can edit this field</p>
+              )}
             </div>
 
             {/* Specialization */}
@@ -307,6 +320,7 @@ const AdminDoctorModal = ({ doctor, onClose, onUpdate, isEditMode = false }) => 
                     firstName: doctor.firstName || '',
                     lastName: doctor.lastName || '',
                     email: doctor.email || '',
+                    medicalLicenseNumber: doctor.medicalLicenseNumber || '',
                     specialization: doctor.specialization || '',
                     yearsOfExperience: doctor.yearsOfExperience || '',
                     description: doctor.description || ''
