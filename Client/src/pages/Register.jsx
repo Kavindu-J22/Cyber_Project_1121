@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
 import { Shield, User, Mail, Lock, FileText, Briefcase, Calendar, Mic, Keyboard, Mouse, CheckCircle, Camera } from 'lucide-react';
 import { KeystrokeCapture, MouseCapture, VoiceCapture, FaceCapture } from '../utils/biometricCapture';
+import HumanVerificationPuzzle from '../components/HumanVerificationPuzzle';
 
 const Register = () => {
   const navigate = useNavigate();
@@ -53,6 +54,9 @@ const Register = () => {
   const [mouseRecordingTime, setMouseRecordingTime] = useState(0);
   const [currentKeystrokeSample, setCurrentKeystrokeSample] = useState(0);
   const [typedText, setTypedText] = useState('');
+
+  // Human verification state
+  const [isHumanVerified, setIsHumanVerified] = useState(false);
 
   // Computed values
   const faceEnrolled = faceImages.length >= 3;
@@ -431,6 +435,11 @@ const Register = () => {
 
     if (faceImages.length < 3) {
       toast.error(`Please capture 3 face samples (${faceImages.length}/3 completed)`);
+      return;
+    }
+
+    if (!isHumanVerified) {
+      toast.error('Please complete the human verification puzzle');
       return;
     }
 
@@ -1159,6 +1168,13 @@ const Register = () => {
                   </button>
                 </div>
 
+                {/* Human Verification Puzzle */}
+                <div className={`border-2 rounded-lg p-6 transition-all ${
+                  isHumanVerified ? 'border-green-500 bg-green-50' : 'border-gray-200 bg-white'
+                }`}>
+                  <HumanVerificationPuzzle onVerified={setIsHumanVerified} />
+                </div>
+
                 <div className="flex gap-4">
                   <button
                     type="button"
@@ -1169,7 +1185,7 @@ const Register = () => {
                   </button>
                   <button
                     type="submit"
-                    disabled={loading || voiceBlobs.length < 3 || keystrokeData.length < 3 || mouseData.length === 0}
+                    disabled={loading || voiceBlobs.length < 3 || keystrokeData.length < 3 || mouseData.length === 0 || !isHumanVerified}
                     className="flex-1 py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 disabled:opacity-50"
                   >
                     {loading ? 'Registering...' : 'Complete Registration'}

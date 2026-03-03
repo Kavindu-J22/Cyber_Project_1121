@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
 import toast from 'react-hot-toast';
-import { Shield, Video, LogOut, Activity, CheckCircle, XCircle } from 'lucide-react';
+import { Shield, Video, LogOut, Activity, CheckCircle, XCircle, User } from 'lucide-react';
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -64,6 +64,13 @@ const Dashboard = () => {
                 </p>
                 <p className="text-xs text-gray-600">{user?.specialization}</p>
               </div>
+              <button
+                onClick={() => navigate('/doctor-profile')}
+                className="flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+              >
+                <User className="h-4 w-4 mr-2" />
+                Profile
+              </button>
               <button
                 onClick={handleLogout}
                 className="flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"

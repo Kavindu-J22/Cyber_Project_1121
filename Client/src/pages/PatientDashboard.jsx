@@ -3,13 +3,17 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
 import toast from 'react-hot-toast';
-import { User, Calendar, LogOut, Stethoscope, Mail, Award, Briefcase } from 'lucide-react';
+import { User, Calendar, LogOut, Stethoscope, Mail, Award, Briefcase, Eye, Search, Filter } from 'lucide-react';
+import DoctorDetailsModal from '../components/DoctorDetailsModal';
 
 const PatientDashboard = () => {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   const [doctors, setDoctors] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [selectedDoctor, setSelectedDoctor] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedSpecialization, setSelectedSpecialization] = useState('all');
 
   useEffect(() => {
     fetchDoctors();
@@ -36,6 +40,18 @@ const PatientDashboard = () => {
   const handleBookAppointment = (doctor) => {
     toast.success(`Appointment booking with Dr. ${doctor.firstName} ${doctor.lastName} - Feature coming soon!`);
   };
+
+  // Get unique specializations for filter
+  const specializations = ['all', ...new Set(doctors.map(d => d.specialization))];
+
+  // Filter doctors based on search and specialization
+  const filteredDoctors = doctors.filter(doctor => {
+    const matchesSearch = searchTerm === '' ||
+      `${doctor.firstName} ${doctor.lastName}`.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSpecialization = selectedSpecialization === 'all' ||
+      doctor.specialization === selectedSpecialization;
+    return matchesSearch && matchesSpecialization;
+  });
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -85,32 +101,72 @@ const PatientDashboard = () => {
         {/* Doctors List */}
         <div className="bg-white rounded-lg shadow p-6">
           <h2 className="text-xl font-semibold text-gray-900 mb-6">Available Doctors</h2>
-          
+
+          {/* Search and Filter */}
+          <div className="mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Search */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search by doctor name..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              />
+            </div>
+
+            {/* Filter by Specialization */}
+            <div className="relative">
+              <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+              <select
+                value={selectedSpecialization}
+                onChange={(e) => setSelectedSpecialization(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary-500 focus:border-transparent appearance-none"
+              >
+                {specializations.map(spec => (
+                  <option key={spec} value={spec}>
+                    {spec === 'all' ? 'All Specializations' : spec}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
           {loading ? (
             <div className="text-center py-8">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto"></div>
               <p className="mt-4 text-gray-600">Loading doctors...</p>
             </div>
-          ) : doctors.length === 0 ? (
+          ) : filteredDoctors.length === 0 ? (
             <div className="text-center py-8">
               <Stethoscope className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-600">No doctors available at the moment</p>
+              <p className="text-gray-600">
+                {doctors.length === 0 ? 'No doctors available at the moment' : 'No doctors found matching your search'}
+              </p>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {doctors.map((doctor) => (
+              {filteredDoctors.map((doctor) => (
                 <div key={doctor._id} className="border border-gray-200 rounded-lg p-6 hover:shadow-lg transition-shadow">
-                  <div className="flex items-center mb-4">
-                    <div className="bg-primary-100 p-3 rounded-full">
-                      <Stethoscope className="h-8 w-8 text-primary-600" />
+                  {/* Profile Image */}
+                  <div className="flex flex-col items-center mb-4">
+                    <div className="w-24 h-24 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center mb-3">
+                      {doctor.profileImage ? (
+                        <img
+                          src={doctor.profileImage}
+                          alt={`Dr. ${doctor.firstName} ${doctor.lastName}`}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <User className="h-12 w-12 text-gray-400" />
+                      )}
                     </div>
-                    <div className="ml-4">
-                      <h3 className="text-lg font-semibold text-gray-900">
-                        Dr. {doctor.firstName} {doctor.lastName}
-                      </h3>
-                    </div>
+                    <h3 className="text-lg font-semibold text-gray-900 text-center">
+                      Dr. {doctor.firstName} {doctor.lastName}
+                    </h3>
                   </div>
-                  
+
                   <div className="space-y-2 mb-4">
                     <div className="flex items-center text-sm text-gray-600">
                       <Award className="h-4 w-4 mr-2" />
@@ -120,25 +176,38 @@ const PatientDashboard = () => {
                       <Briefcase className="h-4 w-4 mr-2" />
                       <span>{doctor.yearsOfExperience} years experience</span>
                     </div>
-                    <div className="flex items-center text-sm text-gray-600">
-                      <Mail className="h-4 w-4 mr-2" />
-                      <span className="truncate">{doctor.email}</span>
-                    </div>
                   </div>
-                  
-                  <button
-                    onClick={() => handleBookAppointment(doctor)}
-                    className="w-full flex items-center justify-center px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 transition-colors"
-                  >
-                    <Calendar className="h-5 w-5 mr-2" />
-                    Book Appointment
-                  </button>
+
+                  <div className="space-y-2">
+                    <button
+                      onClick={() => setSelectedDoctor(doctor)}
+                      className="w-full flex items-center justify-center px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors"
+                    >
+                      <Eye className="h-5 w-5 mr-2" />
+                      View Details
+                    </button>
+                    <button
+                      onClick={() => handleBookAppointment(doctor)}
+                      className="w-full flex items-center justify-center px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 transition-colors"
+                    >
+                      <Calendar className="h-5 w-5 mr-2" />
+                      Book Appointment
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
           )}
         </div>
       </main>
+
+      {/* Doctor Details Modal */}
+      {selectedDoctor && (
+        <DoctorDetailsModal
+          doctor={selectedDoctor}
+          onClose={() => setSelectedDoctor(null)}
+        />
+      )}
     </div>
   );
 };

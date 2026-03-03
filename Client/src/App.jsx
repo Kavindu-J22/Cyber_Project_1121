@@ -4,6 +4,7 @@ import { useAuth } from './context/AuthContext';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
+import DoctorProfile from './pages/DoctorProfile';
 import PatientDashboard from './pages/PatientDashboard';
 import AdminDashboard from './pages/AdminDashboard';
 import Meeting from './pages/Meeting';
@@ -22,6 +23,14 @@ function App() {
             element={
               <PrivateRoute allowedRoles={['doctor']}>
                 <Dashboard />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/doctor-profile"
+            element={
+              <PrivateRoute allowedRoles={['doctor']}>
+                <DoctorProfile />
               </PrivateRoute>
             }
           />

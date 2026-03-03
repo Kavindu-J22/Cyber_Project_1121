@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
 import toast from 'react-hot-toast';
-import { Shield, LogOut, Users, Stethoscope, Mail, Award, Briefcase, User as UserIcon } from 'lucide-react';
+import { Shield, LogOut, Users, Stethoscope, Mail, Award, Briefcase, User as UserIcon, Search, Filter, Eye, Edit, Trash2, UserX, UserCheck2 } from 'lucide-react';
+import AdminDoctorModal from '../components/AdminDoctorModal';
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
@@ -12,6 +13,10 @@ const AdminDashboard = () => {
   const [patients, setPatients] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('doctors'); // 'doctors' or 'patients'
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedSpecialization, setSelectedSpecialization] = useState('all');
+  const [selectedDoctor, setSelectedDoctor] = useState(null);
+  const [editingDoctor, setEditingDoctor] = useState(null);
 
   useEffect(() => {
     fetchData();
@@ -39,6 +44,45 @@ const AdminDashboard = () => {
     logout();
     navigate('/login');
   };
+
+  const handleDeleteDoctor = async (doctorId) => {
+    if (!window.confirm('Are you sure you want to delete this doctor? This action cannot be undone.')) {
+      return;
+    }
+    try {
+      await axios.delete(`/api/doctors/${doctorId}`);
+      toast.success('Doctor deleted successfully');
+      fetchData();
+    } catch (error) {
+      console.error('Error deleting doctor:', error);
+      toast.error('Failed to delete doctor');
+    }
+  };
+
+  const handleToggleActive = async (doctorId, currentStatus) => {
+    try {
+      await axios.patch(`/api/doctors/${doctorId}/toggle-active`, {
+        isActive: !currentStatus
+      });
+      toast.success(`Doctor ${!currentStatus ? 'activated' : 'deactivated'} successfully`);
+      fetchData();
+    } catch (error) {
+      console.error('Error toggling doctor status:', error);
+      toast.error('Failed to update doctor status');
+    }
+  };
+
+  // Get unique specializations for filter
+  const specializations = ['all', ...new Set(doctors.map(d => d.specialization))];
+
+  // Filter doctors based on search and specialization
+  const filteredDoctors = doctors.filter(doctor => {
+    const matchesSearch = searchTerm === '' ||
+      `${doctor.firstName} ${doctor.lastName}`.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSpecialization = selectedSpecialization === 'all' ||
+      doctor.specialization === selectedSpecialization;
+    return matchesSearch && matchesSpecialization;
+  });
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -136,23 +180,66 @@ const AdminDashboard = () => {
                 {activeTab === 'doctors' && (
                   <div>
                     <h3 className="text-lg font-semibold text-gray-900 mb-4">Registered Doctors</h3>
-                    {doctors.length === 0 ? (
-                      <p className="text-gray-600 text-center py-8">No doctors registered yet</p>
+
+                    {/* Search and Filter */}
+                    <div className="mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {/* Search */}
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                        <input
+                          type="text"
+                          placeholder="Search by doctor name..."
+                          value={searchTerm}
+                          onChange={(e) => setSearchTerm(e.target.value)}
+                          className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                        />
+                      </div>
+
+                      {/* Filter by Specialization */}
+                      <div className="relative">
+                        <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                        <select
+                          value={selectedSpecialization}
+                          onChange={(e) => setSelectedSpecialization(e.target.value)}
+                          className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary-500 focus:border-transparent appearance-none"
+                        >
+                          {specializations.map(spec => (
+                            <option key={spec} value={spec}>
+                              {spec === 'all' ? 'All Specializations' : spec}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    {filteredDoctors.length === 0 ? (
+                      <p className="text-gray-600 text-center py-8">
+                        {doctors.length === 0 ? 'No doctors registered yet' : 'No doctors found matching your search'}
+                      </p>
                     ) : (
                       <div className="overflow-x-auto">
                         <table className="min-w-full divide-y divide-gray-200">
                           <thead className="bg-gray-50">
                             <tr>
+                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
                               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
                               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Specialization</th>
                               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Experience</th>
                               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Biometric Status</th>
+                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                             </tr>
                           </thead>
                           <tbody className="bg-white divide-y divide-gray-200">
-                            {doctors.map((doctor) => (
-                              <tr key={doctor._id} className="hover:bg-gray-50">
+                            {filteredDoctors.map((doctor) => (
+                              <tr key={doctor._id} className={`hover:bg-gray-50 ${!doctor.isActive ? 'bg-red-50' : ''}`}>
+                                <td className="px-6 py-4 whitespace-nowrap">
+                                  <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                                    doctor.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                                  }`}>
+                                    {doctor.isActive ? 'Active' : 'Inactive'}
+                                  </span>
+                                </td>
                                 <td className="px-6 py-4 whitespace-nowrap">
                                   <div className="text-sm font-medium text-gray-900">
                                     Dr. {doctor.firstName} {doctor.lastName}
@@ -189,6 +276,31 @@ const AdminDashboard = () => {
                                     }`}>
                                       Mouse {doctor.biometricData?.mouseEnrolled ? '✓' : '✗'}
                                     </span>
+                                  </div>
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap">
+                                  <div className="flex gap-2">
+                                    <button
+                                      onClick={() => setSelectedDoctor(doctor)}
+                                      className="text-blue-600 hover:text-blue-800"
+                                      title="View Details"
+                                    >
+                                      <Eye className="h-5 w-5" />
+                                    </button>
+                                    <button
+                                      onClick={() => handleToggleActive(doctor._id, doctor.isActive)}
+                                      className={`${doctor.isActive ? 'text-orange-600 hover:text-orange-800' : 'text-green-600 hover:text-green-800'}`}
+                                      title={doctor.isActive ? 'Deactivate' : 'Activate'}
+                                    >
+                                      {doctor.isActive ? <UserX className="h-5 w-5" /> : <UserCheck2 className="h-5 w-5" />}
+                                    </button>
+                                    <button
+                                      onClick={() => handleDeleteDoctor(doctor._id)}
+                                      className="text-red-600 hover:text-red-800"
+                                      title="Delete"
+                                    >
+                                      <Trash2 className="h-5 w-5" />
+                                    </button>
                                   </div>
                                 </td>
                               </tr>
@@ -245,6 +357,16 @@ const AdminDashboard = () => {
           </div>
         </div>
       </main>
+
+      {/* Admin Doctor Modal */}
+      {selectedDoctor && (
+        <AdminDoctorModal
+          doctor={selectedDoctor}
+          onClose={() => setSelectedDoctor(null)}
+          onUpdate={fetchData}
+          isEditMode={false}
+        />
+      )}
     </div>
   );
 };
