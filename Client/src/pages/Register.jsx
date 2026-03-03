@@ -3,46 +3,66 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
 import { Shield, User, Mail, Lock, FileText, Briefcase, Calendar, Mic, Keyboard, Mouse, CheckCircle, Camera } from 'lucide-react';
-import { KeystrokeCapture, MouseCapture, VoiceCapture } from '../utils/biometricCapture';
+import { KeystrokeCapture, MouseCapture, VoiceCapture, FaceCapture } from '../utils/biometricCapture';
+import HumanVerificationPuzzle from '../components/HumanVerificationPuzzle';
+import OTPVerification from '../components/OTPVerification';
 
 const Register = () => {
   const navigate = useNavigate();
-  const { register } = useAuth();
-  const [step, setStep] = useState(1);
+  const { register, registerPatient } = useAuth();
+  const [userType, setUserType] = useState(null); // 'doctor' or 'patient'
+  const [step, setStep] = useState(0); // 0 = user type selection, 1+ = registration steps
   const [loading, setLoading] = useState(false);
-  
+  const [showOTPVerification, setShowOTPVerification] = useState(false);
+  const [isEmailVerified, setIsEmailVerified] = useState(false);
+
   const [formData, setFormData] = useState({
-    firstName: '',
-    lastName: '',
+    // Common fields
     email: '',
     password: '',
     confirmPassword: '',
+    // Doctor fields
+    firstName: '',
+    lastName: '',
     medicalLicenseNumber: '',
     specialization: '',
     yearsOfExperience: '',
+    // Patient fields
+    fullName: '',
+    age: '',
+    gender: '',
   });
 
   // Biometric data
-  const [faceEnrolled, setFaceEnrolled] = useState(false);
   const [voiceBlobs, setVoiceBlobs] = useState([]);
   const [keystrokeData, setKeystrokeData] = useState([]);
   const [mouseData, setMouseData] = useState([]);
+  const [faceImages, setFaceImages] = useState([]);
 
   // Capture instances
   const keystrokeCapture = useRef(new KeystrokeCapture());
   const mouseCapture = useRef(new MouseCapture());
   const voiceCapture = useRef(new VoiceCapture());
+  const faceCapture = useRef(new FaceCapture());
 
   // Recording states
-  const [isCapturingFace, setIsCapturingFace] = useState(false);
-  const [faceStream, setFaceStream] = useState(null);
   const [isRecordingVoice, setIsRecordingVoice] = useState(false);
   const [isCapturingKeystroke, setIsCapturingKeystroke] = useState(false);
   const [isCapturingMouse, setIsCapturingMouse] = useState(false);
+  const [isCameraActive, setIsCameraActive] = useState(false);
+  const [isCapturingFace, setIsCapturingFace] = useState(false);
+  const [isProcessingCapture, setIsProcessingCapture] = useState(false);
+  const [cameraReady, setCameraReady] = useState(false);
   const [voiceRecordingTime, setVoiceRecordingTime] = useState(0);
   const [mouseRecordingTime, setMouseRecordingTime] = useState(0);
   const [currentKeystrokeSample, setCurrentKeystrokeSample] = useState(0);
   const [typedText, setTypedText] = useState('');
+
+  // Human verification state
+  const [isHumanVerified, setIsHumanVerified] = useState(false);
+
+  // Computed values
+  const faceEnrolled = faceImages.length >= 3;
 
   const videoRef = useRef(null);
 
@@ -53,71 +73,236 @@ const Register = () => {
     });
   };
 
+  const handleUserTypeSelection = (type) => {
+    setUserType(type);
+    setStep(1);
+  };
+
   const handleNext = () => {
-    // Validate current step
-    if (step === 1) {
-      if (!formData.firstName || !formData.lastName || !formData.email || 
-          !formData.password || !formData.confirmPassword) {
-        toast.error('Please fill in all fields');
-        return;
+    // Validate current step for Doctor
+    if (userType === 'doctor') {
+      if (step === 1) {
+        if (!formData.firstName || !formData.lastName || !formData.email ||
+            !formData.password || !formData.confirmPassword) {
+          toast.error('Please fill in all fields');
+          return;
+        }
+        if (formData.password !== formData.confirmPassword) {
+          toast.error('Passwords do not match');
+          return;
+        }
+        if (formData.password.length < 6) {
+          toast.error('Password must be at least 6 characters');
+          return;
+        }
+        // Show OTP verification before proceeding
+        if (!isEmailVerified) {
+          setShowOTPVerification(true);
+          return;
+        }
       }
-      if (formData.password !== formData.confirmPassword) {
-        toast.error('Passwords do not match');
-        return;
-      }
-      if (formData.password.length < 6) {
-        toast.error('Password must be at least 6 characters');
-        return;
+
+      if (step === 2) {
+        if (!formData.medicalLicenseNumber || !formData.specialization || !formData.yearsOfExperience) {
+          toast.error('Please fill in all professional details');
+          return;
+        }
       }
     }
-    
-    if (step === 2) {
-      if (!formData.medicalLicenseNumber || !formData.specialization || !formData.yearsOfExperience) {
-        toast.error('Please fill in all professional details');
-        return;
+
+    // Validate for Patient
+    if (userType === 'patient') {
+      if (step === 1) {
+        if (!formData.fullName || !formData.age || !formData.gender ||
+            !formData.email || !formData.password || !formData.confirmPassword) {
+          toast.error('Please fill in all fields');
+          return;
+        }
+        if (formData.password !== formData.confirmPassword) {
+          toast.error('Passwords do not match');
+          return;
+        }
+        if (formData.password.length < 6) {
+          toast.error('Password must be at least 6 characters');
+          return;
+        }
+        // Show OTP verification before proceeding
+        if (!isEmailVerified) {
+          setShowOTPVerification(true);
+          return;
+        }
       }
     }
-    
+
     setStep(step + 1);
+  };
+
+  const handleOTPVerified = () => {
+    setIsEmailVerified(true);
+    setShowOTPVerification(false);
+    setStep(step + 1);
+    toast.success('Email verified! You can now continue registration.');
+  };
+
+  const handleOTPBack = () => {
+    setShowOTPVerification(false);
   };
 
   const handleBack = () => {
     setStep(step - 1);
   };
 
-  // Face Recognition Capture
+  // Face Recognition Capture (3 images)
   const startFaceCapture = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { width: 640, height: 480 }
-      });
-      setFaceStream(stream);
+      setCameraReady(false);
+      setIsCameraActive(false);
+
+      // Set isCapturingFace to true first to render the video element
       setIsCapturingFace(true);
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
+
+      // Wait for next render cycle so video element is in DOM
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // Now check if video element exists
+      if (!videoRef.current) {
+        toast.error('Video element not found. Please try again.');
+        setIsCapturingFace(false);
+        return;
       }
-      toast.success('📷 Camera activated! Position your face in the frame');
+
+      console.log('Starting camera...');
+      const started = await faceCapture.current.startCamera(videoRef.current);
+
+      if (started) {
+        setIsCameraActive(true);
+        console.log('Camera stream started successfully');
+
+        // Wait for video to be ready and playing
+        await new Promise((resolve) => {
+          const video = videoRef.current;
+
+          if (!video) {
+            console.error('Video element disappeared');
+            resolve();
+            return;
+          }
+
+          const markReady = () => {
+            console.log('Camera ready! Video dimensions:', video.videoWidth, 'x', video.videoHeight);
+            setCameraReady(true);
+            resolve();
+          };
+
+          // Check if video is already ready
+          if (video.readyState >= 3 && video.videoWidth > 0) {
+            console.log('Video already ready');
+            markReady();
+            return;
+          }
+
+          // Set up event listeners
+          const onLoadedMetadata = () => {
+            console.log('Video metadata loaded');
+            if (video.videoWidth > 0) {
+              markReady();
+            }
+          };
+
+          const onLoadedData = () => {
+            console.log('Video data loaded, readyState:', video.readyState);
+            if (video.readyState >= 2 && video.videoWidth > 0) {
+              markReady();
+            }
+          };
+
+          const onCanPlay = () => {
+            console.log('Video can play');
+            markReady();
+          };
+
+          video.addEventListener('loadedmetadata', onLoadedMetadata, { once: true });
+          video.addEventListener('loadeddata', onLoadedData, { once: true });
+          video.addEventListener('canplay', onCanPlay, { once: true });
+
+          // Safety timeout - mark as ready after 3 seconds anyway
+          setTimeout(() => {
+            console.log('Camera ready timeout triggered');
+            setCameraReady(true);
+            resolve();
+          }, 3000);
+        });
+
+        toast.success('📷 Camera activated! Wait for the green indicator, then capture.');
+      } else {
+        toast.error('Failed to access camera. Please check permissions.');
+        setIsCapturingFace(false);
+        setIsCameraActive(false);
+      }
     } catch (error) {
-      console.error('Camera access error:', error);
-      toast.error('Failed to access camera. Please check permissions.');
+      console.error('Camera start error:', error);
+      toast.error('Failed to start camera. Please check permissions.');
+      setIsCapturingFace(false);
+      setIsCameraActive(false);
+      setCameraReady(false);
     }
   };
 
-  const captureFaceSample = () => {
-    if (videoRef.current && faceStream) {
-      // Simulate face capture (frontend only - no backend processing)
-      setFaceEnrolled(true);
-      stopFaceCapture();
-      toast.success('✅ Face sample captured successfully!');
+  const captureFaceSample = async () => {
+    if (isProcessingCapture) return; // Prevent double-clicks
+    
+    try {
+      setIsProcessingCapture(true);
+      
+      // Validate video is ready
+      if (!videoRef.current) {
+        toast.error('Video element not found.');
+        return;
+      }
+
+      if (!videoRef.current.srcObject) {
+        toast.error('Camera stream not available. Please restart the camera.');
+        return;
+      }
+
+      // Less strict check - just warn if readyState is low but still try
+      if (videoRef.current.readyState < 1) {
+        console.warn('Video readyState:', videoRef.current.readyState);
+        toast.error('Video is still loading. Please wait a moment.');
+        return;
+      }
+
+      // Try to capture
+      await faceCapture.current.captureFrame(videoRef.current, 224, 224);
+      const count = faceCapture.current.getImageCount();
+      setFaceImages(faceCapture.current.getImages());
+      
+      if (count >= 3) {
+        toast.success(`✅ All ${count} face samples captured!`);
+        stopFaceCapture();
+      } else {
+        toast.success(`✅ Face sample ${count}/3 captured! Capture ${3 - count} more.`);
+      }
+    } catch (error) {
+      console.error('Face capture error:', error);
+      console.error('Video element state:', {
+        exists: !!videoRef.current,
+        hasStream: !!videoRef.current?.srcObject,
+        readyState: videoRef.current?.readyState,
+        videoWidth: videoRef.current?.videoWidth,
+        videoHeight: videoRef.current?.videoHeight
+      });
+      toast.error(`Failed to capture: ${error.message}`);
+    } finally {
+      setIsProcessingCapture(false);
     }
   };
 
   const stopFaceCapture = () => {
-    if (faceStream) {
-      faceStream.getTracks().forEach(track => track.stop());
-      setFaceStream(null);
-    }
+    faceCapture.current.stopCamera();
+    setIsCameraActive(false);
     setIsCapturingFace(false);
+    setCameraReady(false);
     if (videoRef.current) {
       videoRef.current.srcObject = null;
     }
@@ -234,6 +419,29 @@ const Register = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    // Patient registration (simple, no biometrics)
+    if (userType === 'patient') {
+      setLoading(true);
+      try {
+        await registerPatient({
+          fullName: formData.fullName,
+          age: formData.age,
+          gender: formData.gender,
+          email: formData.email,
+          password: formData.password
+        });
+        toast.success('Patient registration successful!');
+        navigate('/patient-dashboard');
+      } catch (error) {
+        console.error('Patient registration error:', error);
+        toast.error(error.response?.data?.message || 'Registration failed. Please try again.');
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
+    // Doctor registration (with biometrics)
     if (voiceBlobs.length < 3) {
       toast.error(`Please record 3 voice samples (${voiceBlobs.length}/3 completed)`);
       return;
@@ -246,6 +454,16 @@ const Register = () => {
 
     if (mouseData.length === 0) {
       toast.error('Please capture a mouse movement pattern');
+      return;
+    }
+
+    if (faceImages.length < 3) {
+      toast.error(`Please capture 3 face samples (${faceImages.length}/3 completed)`);
+      return;
+    }
+
+    if (!isHumanVerified) {
+      toast.error('Please complete the human verification puzzle');
       return;
     }
 
@@ -269,8 +487,13 @@ const Register = () => {
       submitData.append('keystrokePattern', JSON.stringify(keystrokeData));
       submitData.append('mousePattern', JSON.stringify(mouseData));
 
+      // Append all 3 face images
+      faceImages.forEach((image, index) => {
+        submitData.append('faceImages', image, `face-sample-${index + 1}.jpg`);
+      });
+
       await register(submitData);
-      toast.success('Registration successful!');
+      toast.success('Doctor registration successful!');
       navigate('/dashboard');
     } catch (error) {
       console.error('Registration error:', error);
@@ -290,17 +513,181 @@ const Register = () => {
             </div>
           </div>
           <h2 className="mt-6 text-3xl font-extrabold text-gray-900">
-            Doctor Registration
+            MediConsult
           </h2>
           <p className="mt-2 text-sm text-gray-600">
-            Step {step} of 3
+            Zero Trust Secure Telehealth Platform
           </p>
+          {step > 0 && (
+            <p className="mt-1 text-xs text-gray-500">
+              {step === 0 ? 'Registration' : userType === 'doctor' ? `Doctor Registration - Step ${step} of 3` : 'Patient Registration - Complete Your Profile'}
+            </p>
+          )}
         </div>
 
         <div className="bg-white rounded-lg shadow-xl p-8">
-          <form onSubmit={handleSubmit}>
-            {/* Step 1: Personal Information */}
-            {step === 1 && (
+          {/* OTP Verification Modal */}
+          {showOTPVerification && (
+            <OTPVerification
+              email={formData.email}
+              userType={userType}
+              onVerified={handleOTPVerified}
+              onBack={handleOTPBack}
+            />
+          )}
+
+          {/* Step 0: User Type Selection */}
+          {!showOTPVerification && step === 0 && (
+            <div className="space-y-6">
+              <h3 className="text-lg font-medium text-gray-900 mb-6 text-center">Choose Registration Type</h3>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <button
+                  type="button"
+                  onClick={() => handleUserTypeSelection('doctor')}
+                  className="p-8 border-2 border-gray-300 rounded-lg hover:border-primary-500 hover:bg-primary-50 transition-all duration-200 group"
+                >
+                  <Briefcase className="h-16 w-16 mx-auto text-primary-600 mb-4" />
+                  <h4 className="text-xl font-semibold text-gray-900 mb-2">Register as Doctor</h4>
+                  <p className="text-sm text-gray-600">
+                    Complete registration with biometric authentication for secure access
+                  </p>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleUserTypeSelection('patient')}
+                  className="p-8 border-2 border-gray-300 rounded-lg hover:border-primary-500 hover:bg-primary-50 transition-all duration-200 group"
+                >
+                  <User className="h-16 w-16 mx-auto text-primary-600 mb-4" />
+                  <h4 className="text-xl font-semibold text-gray-900 mb-2">Register as Patient</h4>
+                  <p className="text-sm text-gray-600">
+                    Quick registration to book appointments and access healthcare services
+                  </p>
+                </button>
+              </div>
+
+              <div className="text-center mt-6">
+                <p className="text-sm text-gray-600">
+                  Already have an account?{' '}
+                  <Link to="/login" className="font-medium text-primary-600 hover:text-primary-500">
+                    Login here
+                  </Link>
+                </p>
+              </div>
+            </div>
+          )}
+
+          {!showOTPVerification && (
+            <form onSubmit={handleSubmit}>
+              {/* Patient Registration Form */}
+              {userType === 'patient' && step === 1 && (
+              <div className="space-y-6">
+                <h3 className="text-lg font-medium text-gray-900 mb-4">Patient Information</h3>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Full Name</label>
+                  <input
+                    type="text"
+                    name="fullName"
+                    value={formData.fullName}
+                    onChange={handleChange}
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+                    required
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Age</label>
+                    <input
+                      type="number"
+                      name="age"
+                      value={formData.age}
+                      onChange={handleChange}
+                      min="0"
+                      max="150"
+                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Gender</label>
+                    <select
+                      name="gender"
+                      value={formData.gender}
+                      onChange={handleChange}
+                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+                      required
+                    >
+                      <option value="">Select Gender</option>
+                      <option value="Male">Male</option>
+                      <option value="Female">Female</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Email Address</label>
+                  <input
+                    type="email"
+                    name="email"
+                    value={formData.email}
+                    onChange={handleChange}
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+                    required
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Password</label>
+                    <input
+                      type="password"
+                      name="password"
+                      value={formData.password}
+                      onChange={handleChange}
+                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Confirm Password</label>
+                    <input
+                      type="password"
+                      name="confirmPassword"
+                      value={formData.confirmPassword}
+                      onChange={handleChange}
+                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="flex justify-between pt-4">
+                  <button
+                    type="button"
+                    onClick={() => setStep(0)}
+                    className="px-6 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+                  >
+                    Back
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="px-6 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 disabled:opacity-50"
+                  >
+                    {loading ? 'Registering...' : 'Register'}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Doctor Registration - Step 1: Personal Information */}
+            {userType === 'doctor' && step === 1 && (
               <div className="space-y-6">
                 <h3 className="text-lg font-medium text-gray-900 mb-4">Personal Information</h3>
                 
@@ -368,18 +755,27 @@ const Register = () => {
                   </div>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={handleNext}
-                  className="w-full py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
-                >
-                  Next
-                </button>
+                <div className="flex gap-4">
+                  <button
+                    type="button"
+                    onClick={() => setStep(0)}
+                    className="flex-1 py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+                  >
+                    Back
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleNext}
+                    className="flex-1 py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+                  >
+                    Next
+                  </button>
+                </div>
               </div>
             )}
 
-            {/* Step 2: Professional Information */}
-            {step === 2 && (
+            {/* Doctor Registration - Step 2: Professional Information */}
+            {userType === 'doctor' && step === 2 && (
               <div className="space-y-6">
                 <h3 className="text-lg font-medium text-gray-900 mb-4">Professional Information</h3>
 
@@ -440,8 +836,8 @@ const Register = () => {
               </div>
             )}
 
-            {/* Step 3: Biometric Enrollment */}
-            {step === 3 && (
+            {/* Doctor Registration - Step 3: Biometric Enrollment */}
+            {userType === 'doctor' && step === 3 && (
               <div className="space-y-6">
                 <div className="text-center mb-6">
                   <h3 className="text-xl font-bold text-gray-900 mb-2">Biometric Enrollment</h3>
@@ -461,7 +857,7 @@ const Register = () => {
                       </div>
                       <div className="ml-3">
                         <h4 className="font-semibold text-gray-900">Face Recognition</h4>
-                        <p className="text-xs text-gray-500">Capture your face sample</p>
+                        <p className="text-xs text-gray-500">Capture 3 face samples ({faceImages.length}/3 completed)</p>
                       </div>
                     </div>
                     <div className="flex items-center">
@@ -478,12 +874,22 @@ const Register = () => {
 
                   {isCapturingFace && (
                     <div className="mb-4">
-                      <div className="mb-2 p-3 bg-blue-50 border border-blue-200 rounded-md">
-                        <p className="text-sm font-medium text-blue-900 mb-1">
-                          📷 Position your face in the camera frame
+                      <div className={`mb-2 p-3 border rounded-md ${
+                        cameraReady 
+                          ? 'bg-green-50 border-green-200' 
+                          : 'bg-yellow-50 border-yellow-200'
+                      }`}>
+                        <p className={`text-sm font-medium mb-1 ${
+                          cameraReady ? 'text-green-900' : 'text-yellow-900'
+                        }`}>
+                          {cameraReady ? '✅ Camera Ready!' : '⏳ Camera Loading...'}
                         </p>
-                        <p className="text-xs text-blue-700">
-                          Make sure your face is clearly visible and well-lit
+                        <p className={`text-xs ${
+                          cameraReady ? 'text-green-700' : 'text-yellow-700'
+                        }`}>
+                          {cameraReady 
+                            ? 'Position your face in the frame and click Capture' 
+                            : 'Please wait for the camera to initialize'}
                         </p>
                       </div>
                       <div className="relative w-full bg-black rounded-lg overflow-hidden">
@@ -491,10 +897,29 @@ const Register = () => {
                           ref={videoRef}
                           autoPlay
                           playsInline
+                          muted
                           className="w-full h-64 object-cover"
+                          style={{ transform: 'scaleX(-1)' }}
                         />
                         <div className="absolute inset-0 border-4 border-dashed border-blue-400 m-8 rounded-lg pointer-events-none"></div>
                       </div>
+                      
+                      {faceImages.length > 0 && (
+                        <div className="mt-3">
+                          <p className="text-xs font-medium text-gray-700 mb-2">Captured Samples:</p>
+                          <div className="flex gap-2">
+                            {faceImages.map((img, index) => (
+                              <div key={index} className="w-16 h-16 rounded-lg overflow-hidden border-2 border-green-500">
+                                <img
+                                  src={URL.createObjectURL(img)}
+                                  alt={`Face sample ${index + 1}`}
+                                  className="w-full h-full object-cover"
+                                />
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
 
@@ -503,31 +928,56 @@ const Register = () => {
                       <button
                         type="button"
                         onClick={captureFaceSample}
-                        className="flex-1 py-3 px-4 rounded-md text-sm font-medium bg-green-600 hover:bg-green-700 text-white transition-all"
+                        disabled={isProcessingCapture || !cameraReady}
+                        className={`flex-1 py-3 px-4 rounded-md text-sm font-medium transition-all ${
+                          isProcessingCapture || !cameraReady
+                            ? 'bg-gray-400 cursor-not-allowed text-white'
+                            : 'bg-green-600 hover:bg-green-700 text-white'
+                        }`}
                       >
-                        ✅ Capture Face Sample
+                        {isProcessingCapture ? '⏳ Capturing...' : !cameraReady ? '⏳ Camera Loading...' : `✅ Capture Sample (${faceImages.length}/3)`}
                       </button>
                       <button
                         type="button"
                         onClick={stopFaceCapture}
-                        className="flex-1 py-3 px-4 rounded-md text-sm font-medium bg-gray-600 hover:bg-gray-700 text-white transition-all"
+                        disabled={isProcessingCapture}
+                        className="flex-1 py-3 px-4 rounded-md text-sm font-medium bg-gray-600 hover:bg-gray-700 text-white transition-all disabled:bg-gray-400 disabled:cursor-not-allowed"
                       >
                         ❌ Cancel
                       </button>
                     </div>
                   ) : (
-                    <button
-                      type="button"
-                      onClick={startFaceCapture}
-                      disabled={faceEnrolled}
-                      className={`w-full py-3 px-4 rounded-md text-sm font-medium transition-all ${
-                        faceEnrolled
-                          ? 'bg-green-600 text-white cursor-not-allowed'
-                          : 'bg-primary-600 hover:bg-primary-700 text-white'
-                      }`}
-                    >
-                      {faceEnrolled ? '✅ Face Sample Captured' : '📷 Start Camera'}
-                    </button>
+                    <>
+                      {faceImages.length > 0 && !faceEnrolled && (
+                        <div className="mb-4">
+                          <p className="text-xs font-medium text-gray-700 mb-2">Captured Samples ({faceImages.length}/3):</p>
+                          <div className="flex gap-2">
+                            {faceImages.map((img, index) => (
+                              <div key={index} className="w-20 h-20 rounded-lg overflow-hidden border-2 border-green-500">
+                                <img
+                                  src={URL.createObjectURL(img)}
+                                  alt={`Face sample ${index + 1}`}
+                                  className="w-full h-full object-cover"
+                                />
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      
+                      <button
+                        type="button"
+                        onClick={startFaceCapture}
+                        disabled={faceEnrolled}
+                        className={`w-full py-3 px-4 rounded-md text-sm font-medium transition-all ${
+                          faceEnrolled
+                            ? 'bg-green-600 text-white cursor-not-allowed'
+                            : 'bg-primary-600 hover:bg-primary-700 text-white'
+                        }`}
+                      >
+                        {faceEnrolled ? '✅ Face Samples Captured (3/3)' : '📷 Start Camera'}
+                      </button>
+                    </>
                   )}
                 </div>
 
@@ -756,6 +1206,13 @@ const Register = () => {
                   </button>
                 </div>
 
+                {/* Human Verification Puzzle */}
+                <div className={`border-2 rounded-lg p-6 transition-all ${
+                  isHumanVerified ? 'border-green-500 bg-green-50' : 'border-gray-200 bg-white'
+                }`}>
+                  <HumanVerificationPuzzle onVerified={setIsHumanVerified} />
+                </div>
+
                 <div className="flex gap-4">
                   <button
                     type="button"
@@ -766,24 +1223,27 @@ const Register = () => {
                   </button>
                   <button
                     type="submit"
-                    disabled={loading || voiceBlobs.length < 3 || keystrokeData.length < 3 || mouseData.length === 0}
+                    disabled={loading || voiceBlobs.length < 3 || keystrokeData.length < 3 || mouseData.length === 0 || !isHumanVerified}
                     className="flex-1 py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 disabled:opacity-50"
                   >
                     {loading ? 'Registering...' : 'Complete Registration'}
                   </button>
                 </div>
               </div>
-            )}
-          </form>
+              )}
+            </form>
+          )}
 
-          <div className="mt-6 text-center">
-            <p className="text-sm text-gray-600">
-              Already have an account?{' '}
-              <Link to="/login" className="font-medium text-primary-600 hover:text-primary-500">
-                Sign in here
-              </Link>
-            </p>
-          </div>
+          {!showOTPVerification && (
+            <div className="mt-6 text-center">
+              <p className="text-sm text-gray-600">
+                Already have an account?{' '}
+                <Link to="/login" className="font-medium text-primary-600 hover:text-primary-500">
+                  Sign in here
+                </Link>
+              </p>
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -3,31 +3,19 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
 import toast from 'react-hot-toast';
-import { Shield, Video, LogOut, Users, Activity, CheckCircle, XCircle } from 'lucide-react';
+import { Shield, Video, LogOut, Activity, CheckCircle, XCircle, User, ClipboardList, Calendar } from 'lucide-react';
+import DoctorAppointments from '../components/DoctorAppointments';
+import ScheduledConsultations from '../components/ScheduledConsultations';
 
 const Dashboard = () => {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
-  const [doctors, setDoctors] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [mlHealth, setMlHealth] = useState({ face: false, voice: false, keystroke: false, mouse: false });
+  const [activeTab, setActiveTab] = useState('consultations'); // 'consultations' or 'appointments'
 
   useEffect(() => {
-    fetchDoctors();
     checkMLHealth();
   }, []);
-
-  const fetchDoctors = async () => {
-    try {
-      const response = await axios.get('/api/doctors');
-      setDoctors(response.data.data);
-    } catch (error) {
-      console.error('Failed to fetch doctors:', error);
-      toast.error('Failed to load doctors list');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const checkMLHealth = async () => {
     try {
@@ -68,8 +56,8 @@ const Dashboard = () => {
             <div className="flex items-center">
               <Shield className="h-8 w-8 text-primary-600 mr-3" />
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">Zero Trust Telehealth</h1>
-                <p className="text-sm text-gray-600">Continuous Biometric Authentication</p>
+                <h1 className="text-2xl font-bold text-gray-900">MediConsult</h1>
+                <p className="text-sm text-gray-600">Zero Trust Secure Telehealth Platform</p>
               </div>
             </div>
             <div className="flex items-center gap-4">
@@ -79,6 +67,13 @@ const Dashboard = () => {
                 </p>
                 <p className="text-xs text-gray-600">{user?.specialization}</p>
               </div>
+              <button
+                onClick={() => navigate('/doctor-profile')}
+                className="flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+              >
+                <User className="h-4 w-4 mr-2" />
+                Profile
+              </button>
               <button
                 onClick={handleLogout}
                 className="flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
@@ -92,48 +87,6 @@ const Dashboard = () => {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* ML Services Status */}
-        <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-            <Activity className="h-5 w-5 mr-2 text-primary-600" />
-            ML Services Status
-          </h2>
-          <div className="grid grid-cols-4 gap-4">
-            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-              <span className="text-sm font-medium text-gray-700">Face Recognition</span>
-              {mlHealth.face ? (
-                <CheckCircle className="h-5 w-5 text-green-600" />
-              ) : (
-                <XCircle className="h-5 w-5 text-red-600" />
-              )}
-            </div>
-            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-              <span className="text-sm font-medium text-gray-700">Voice Recognition</span>
-              {mlHealth.voice ? (
-                <CheckCircle className="h-5 w-5 text-green-600" />
-              ) : (
-                <XCircle className="h-5 w-5 text-red-600" />
-              )}
-            </div>
-            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-              <span className="text-sm font-medium text-gray-700">Keystroke Dynamics</span>
-              {mlHealth.keystroke ? (
-                <CheckCircle className="h-5 w-5 text-green-600" />
-              ) : (
-                <XCircle className="h-5 w-5 text-red-600" />
-              )}
-            </div>
-            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-              <span className="text-sm font-medium text-gray-700">Mouse Movement</span>
-              {mlHealth.mouse ? (
-                <CheckCircle className="h-5 w-5 text-green-600" />
-              ) : (
-                <XCircle className="h-5 w-5 text-red-600" />
-              )}
-            </div>
-          </div>
-        </div>
-
         {/* Biometric Enrollment Status */}
         <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Your Biometric Profile</h2>
@@ -165,91 +118,45 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* Start Consultation */}
-        <div className="bg-gradient-to-r from-primary-600 to-indigo-600 rounded-lg shadow-lg p-8 mb-6 text-white">
-          <h2 className="text-2xl font-bold mb-2">Start Live Consultation</h2>
-          <p className="mb-6 opacity-90">Begin a secure video consultation with continuous biometric verification</p>
-          <button
-            onClick={handleStartConsultation}
-            className="flex items-center px-6 py-3 bg-white text-primary-600 rounded-lg font-semibold hover:bg-gray-100 transition-colors"
-          >
-            <Video className="h-5 w-5 mr-2" />
-            Start Consultation
-          </button>
+        {/* Tabs */}
+        <div className="mb-6 border-b border-gray-200">
+          <div className="flex gap-4">
+            <button
+              onClick={() => setActiveTab('consultations')}
+              className={`flex items-center px-4 py-3 font-medium text-sm border-b-2 transition-colors ${
+                activeTab === 'consultations'
+                  ? 'border-primary-600 text-primary-600'
+                  : 'border-transparent text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <Video className="h-5 w-5 mr-2" />
+              Scheduled Consultations
+            </button>
+            <button
+              onClick={() => setActiveTab('appointments')}
+              className={`flex items-center px-4 py-3 font-medium text-sm border-b-2 transition-colors ${
+                activeTab === 'appointments'
+                  ? 'border-primary-600 text-primary-600'
+                  : 'border-transparent text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <ClipboardList className="h-5 w-5 mr-2" />
+              Appointments
+            </button>
+          </div>
         </div>
 
-        {/* Registered Doctors List */}
-        <div className="bg-white rounded-lg shadow-sm p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-            <Users className="h-5 w-5 mr-2 text-primary-600" />
-            Registered Doctors ({doctors.length})
-          </h2>
-          
-          {loading ? (
-            <div className="text-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mx-auto"></div>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Specialization</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">License</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Experience</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Biometric Status</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {doctors.map((doctor) => (
-                    <tr key={doctor._id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900">
-                          Dr. {doctor.firstName} {doctor.lastName}
-                        </div>
-                        <div className="text-sm text-gray-500">{doctor.email}</div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {doctor.specialization}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {doctor.medicalLicenseNumber}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {doctor.yearsOfExperience} years
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex gap-2">
-                          <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                            doctor.biometricData?.faceEnrolled ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-                          }`}>
-                            Face
-                          </span>
-                          <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                            doctor.biometricData?.voiceEnrolled ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-                          }`}>
-                            Voice
-                          </span>
-                          <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                            doctor.biometricData?.keystrokeEnrolled ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-                          }`}>
-                            Key
-                          </span>
-                          <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                            doctor.biometricData?.mouseEnrolled ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-                          }`}>
-                            Mouse
-                          </span>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
+        {/* Tab Content */}
+        {activeTab === 'consultations' ? (
+          /* Scheduled Consultations */
+          <div className="bg-white rounded-lg shadow p-6">
+            <h2 className="text-xl font-semibold text-gray-900 mb-6">Scheduled Consultations</h2>
+            <ScheduledConsultations />
+          </div>
+        ) : (
+          /* Appointments Tab */
+          <DoctorAppointments />
+        )}
       </main>
     </div>
   );

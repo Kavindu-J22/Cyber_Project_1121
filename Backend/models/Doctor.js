@@ -42,6 +42,15 @@ const doctorSchema = new mongoose.Schema({
     required: [true, 'Years of experience is required'],
     min: 0
   },
+  profileImage: {
+    type: String,
+    default: null
+  },
+  description: {
+    type: String,
+    default: null,
+    maxlength: 1000
+  },
   biometricData: {
     voiceEnrolled: {
       type: Boolean,
@@ -64,6 +73,14 @@ const doctorSchema = new mongoose.Schema({
       default: false
     },
     mouseProfile: {
+      type: String, // Reference ID or serialized data
+      default: null
+    },
+    faceEnrolled: {
+      type: Boolean,
+      default: false
+    },
+    faceProfile: {
       type: String, // Reference ID or serialized data
       default: null
     }

@@ -8,16 +8,24 @@ import { Server } from 'socket.io';
 import connectDB from './config/db.js';
 import authRoutes from './routes/authRoutes.js';
 import doctorRoutes from './routes/doctorRoutes.js';
+import patientRoutes from './routes/patientRoutes.js';
 import sessionRoutes from './routes/sessionRoutes.js';
 import verificationRoutes from './routes/verificationRoutes.js';
+import otpRoutes from './routes/otpRoutes.js';
+import appointmentRoutes from './routes/appointmentRoutes.js';
+import consultationRoutes from './routes/consultationRoutes.js';
 import Session from './models/Session.js';
 import mlService from './services/mlService.js';
+import { verifyEmailConfig } from './utils/emailService.js';
 
 // Load environment variables
 dotenv.config();
 
 // Connect to database
 connectDB();
+
+// Verify email configuration
+verifyEmailConfig();
 
 // Initialize Express app
 const app = express();
@@ -45,8 +53,12 @@ app.use(express.urlencoded({ extended: true }));
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/doctors', doctorRoutes);
+app.use('/api/patients', patientRoutes);
 app.use('/api/sessions', sessionRoutes);
 app.use('/api/verification', verificationRoutes);
+app.use('/api/otp', otpRoutes);
+app.use('/api/appointments', appointmentRoutes);
+app.use('/api/consultations', consultationRoutes);
 
 // Health check
 app.get('/api/health', async (req, res) => {
@@ -75,12 +87,18 @@ app.get('/', (req, res) => {
     endpoints: {
       auth: '/api/auth',
       doctors: '/api/doctors',
+      patients: '/api/patients',
       sessions: '/api/sessions',
       verification: '/api/verification',
+      otp: '/api/otp',
+      appointments: '/api/appointments',
       health: '/api/health'
     }
   });
 });
+
+// Track users per room: roomId -> [{ socketId, userId, userRole, userName }]
+const roomUsers = new Map();
 
 // Socket.IO connection handling
 io.on('connection', (socket) => {
@@ -88,36 +106,76 @@ io.on('connection', (socket) => {
 
   // Join session room
   socket.on('join-session', async (data) => {
-    const { sessionId, doctorId } = data;
+    const { sessionId, userId, userRole, userName } = data;
     socket.join(sessionId);
-    console.log(`Doctor ${doctorId} joined session ${sessionId}`);
-    
+
+    // Track room membership
+    if (!roomUsers.has(sessionId)) roomUsers.set(sessionId, []);
+    const users = roomUsers.get(sessionId);
+    users.push({ socketId: socket.id, userId, userRole, userName });
+    console.log(`${userRole} (${userName}) joined session ${sessionId}`);
+
     socket.emit('session-joined', { sessionId, socketId: socket.id });
+
+    // Notify existing participants that a new user joined
+    socket.to(sessionId).emit('user-joined', {
+      socketId: socket.id,
+      userId,
+      userRole,
+      userName
+    });
   });
 
-  // Handle real-time verification
+  // ── WebRTC Signaling ──────────────────────────────────────────
+  socket.on('offer', ({ offer, targetSocketId, sessionId }) => {
+    io.to(targetSocketId).emit('offer', { offer, fromSocketId: socket.id, sessionId });
+  });
+
+  socket.on('answer', ({ answer, targetSocketId, sessionId }) => {
+    io.to(targetSocketId).emit('answer', { answer, fromSocketId: socket.id, sessionId });
+  });
+
+  socket.on('ice-candidate', ({ candidate, targetSocketId, sessionId }) => {
+    io.to(targetSocketId).emit('ice-candidate', { candidate, fromSocketId: socket.id, sessionId });
+  });
+
+  // ── Session Control ───────────────────────────────────────────
+  socket.on('end-session', ({ sessionId }) => {
+    console.log(`Session ended by doctor in room: ${sessionId}`);
+    // Notify everyone in the room (including the doctor themselves)
+    io.to(sessionId).emit('session-ended', {
+      message: 'Consultation has been ended by the doctor',
+      timestamp: new Date().toISOString()
+    });
+  });
+
+  // ── Chat ──────────────────────────────────────────────────────
+  socket.on('chat-message', (msg) => {
+    // Broadcast to all participants in the session room
+    io.to(msg.sessionId).emit('chat-message', msg);
+  });
+
+  // ── Biometric Verification ────────────────────────────────────
   socket.on('verify-biometric', async (data) => {
     try {
       const { sessionId, doctorId, type, payload } = data;
       let result = null;
 
-      // Perform verification based on type
       switch (type) {
         case 'voice':
-          // Voice verification would need audio stream handling
           break;
-        
         case 'keystroke':
           result = await mlService.verifyKeystroke(doctorId, payload);
           break;
-        
         case 'mouse':
           result = await mlService.verifyMouse(doctorId, payload);
+          break;
+        case 'face':
+          result = await mlService.verifyFace(doctorId, payload);
           break;
       }
 
       if (result) {
-        // Update session with verification log
         const session = await Session.findOne({ sessionId });
         if (session) {
           session.verificationLogs.push({
@@ -127,13 +185,11 @@ io.on('connection', (socket) => {
             details: result
           });
 
-          // Update trust score
           const recentLogs = session.verificationLogs.slice(-10);
-          const avgConfidence = recentLogs.reduce((sum, log) => 
+          const avgConfidence = recentLogs.reduce((sum, log) =>
             sum + (log.confidence || 0), 0) / recentLogs.length;
           session.overallTrustScore = Math.round(avgConfidence * 100);
 
-          // Check for alerts
           if (avgConfidence < 0.5) {
             session.status = 'suspicious';
             session.alerts.push({
@@ -142,8 +198,6 @@ io.on('connection', (socket) => {
               message: `${type} verification confidence dropped below 50%`,
               details: result
             });
-
-            // Emit alert to client
             io.to(sessionId).emit('verification-alert', {
               type: 'low_confidence',
               severity: 'high',
@@ -151,11 +205,9 @@ io.on('connection', (socket) => {
               trustScore: session.overallTrustScore
             });
           }
-
           await session.save();
         }
 
-        // Emit verification result
         io.to(sessionId).emit('verification-result', {
           type,
           result,
@@ -164,15 +216,22 @@ io.on('connection', (socket) => {
       }
     } catch (error) {
       console.error('Verification error:', error);
-      socket.emit('verification-error', {
-        message: 'Verification failed',
-        error: error.message
-      });
+      socket.emit('verification-error', { message: 'Verification failed', error: error.message });
     }
   });
 
+  // ── Disconnect ────────────────────────────────────────────────
   socket.on('disconnect', () => {
     console.log(`✗ Client disconnected: ${socket.id}`);
+    // Remove from all rooms and notify peers
+    for (const [roomId, users] of roomUsers.entries()) {
+      const idx = users.findIndex(u => u.socketId === socket.id);
+      if (idx !== -1) {
+        users.splice(idx, 1);
+        socket.to(roomId).emit('user-left', { socketId: socket.id });
+        if (users.length === 0) roomUsers.delete(roomId);
+      }
+    }
   });
 });
 

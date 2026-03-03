@@ -1,0 +1,14 @@
+2026-02-12 12:43:10 | INFO     | __main__:run_test - Running Face Verification tests...
+2026-02-12 12:43:10 | INFO     | __main__:run_test - 
+1. Testing preprocessor...
+2026-02-12 12:43:10 | INFO     | __main__:run_test -   ✓ Preprocessor working (output shape: torch.Size([1, 3, 224, 224]))
+2026-02-12 12:43:10 | INFO     | __main__:run_test - 
+2. Testing model loading...
+2026-02-12 12:43:10 | INFO     | src.face_verification:__init__ - Using device: cpu
+2026-02-12 12:43:10 | INFO     | src.face_verification:_load_model - Loading model from: models\best_resnet50_triplet.pth
+2026-02-12 12:43:11 | ERROR    | src.face_verification:_load_model - Failed to load model: Error(s) in loading state_dict for ResNet50TripletModel:
+	size mismatch for fc.weight: copying a param with shape torch.Size([512, 2048]) from checkpoint, the shape in current model is torch.Size([1000, 2048]).
+	size mismatch for fc.bias: copying a param with shape torch.Size([512]) from checkpoint, the shape in current model is torch.Size([1000]).
+2026-02-12 12:43:11 | ERROR    | __main__:run_test -   ✗ Model loading failed: Error(s) in loading state_dict for ResNet50TripletModel:
+	size mismatch for fc.weight: copying a param with shape torch.Size([512, 2048]) from checkpoint, the shape in current model is torch.Size([1000, 2048]).
+	size mismatch for fc.bias: copying a param with shape torch.Size([512]) from checkpoint, the shape in current model is torch.Size([1000]).

@@ -12,6 +12,7 @@ This project addresses a critical vulnerability in modern telehealth: **the lack
   - 🎤 Voice Recognition (ECAPA-TDNN model)
   - ⌨️ Keystroke Dynamics (Deep Neural Network)
   - 🖱️ Mouse Movement Analysis (Siamese Network)
+  - 👤 Face Verification (ResNet50 Triplet Loss)
 
 - **Real-time Verification**
   - Continuous monitoring during video consultations

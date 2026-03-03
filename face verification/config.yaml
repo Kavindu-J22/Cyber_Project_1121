@@ -1,0 +1,97 @@
+# Face Verification Configuration
+
+# Model Configuration
+model:
+  type: "resnet50_triplet"
+  backbone: "resnet50"
+  embedding_dim: 128
+  pretrained: true
+  checkpoint_path: "models/best_resnet50_triplet.pth"
+  
+# Image Processing
+image:
+  face_size: 224
+  channels: 3  # RGB
+  normalize_mean: [0.485, 0.456, 0.406]  # ImageNet normalization
+  normalize_std: [0.229, 0.224, 0.225]
+  supported_formats: [".jpg", ".jpeg", ".png", ".bmp"]
+  max_file_size_mb: 10
+  
+# Face Verification
+verification:
+  similarity_metric: "cosine"  # cosine, euclidean
+  threshold: 0.8096            # Default threshold from training
+  high_security_threshold: 0.85
+  balanced_threshold: 0.78
+  lenient_threshold: 0.70
+  enrollment_samples: 3        # Number of face samples for enrollment
+  
+# Face Detection (Optional - for auto-cropping)
+face_detection:
+  enabled: false
+  detector: "mtcnn"  # mtcnn, dlib, opencv
+  min_face_size: 100
+  detection_threshold: 0.9
+  
+# Security
+security:
+  tls_version: "1.3"
+  encrypt_embeddings: true
+  store_raw_images: false      # Never store raw images
+  embedding_encryption_key_env: "EMBEDDING_ENCRYPTION_KEY"
+  jwt_secret_env: "JWT_SECRET"
+  jwt_algorithm: "HS256"
+  jwt_expiry_hours: 24
+  
+# Database
+database:
+  type: "mongodb"
+  host: "localhost"
+  port: 27017
+  name: "face_verification_db"
+  collections:
+    enrollments: "face_enrollments"
+    verifications: "verification_logs"
+    alerts: "security_alerts"
+    
+# API Configuration
+api:
+  host: "0.0.0.0"
+  port: 8004
+  workers: 1  # Windows compatibility
+  reload: false
+  log_level: "info"
+  cors_origins: ["http://localhost:3000", "http://localhost:5000", "http://localhost:5173"]
+  max_upload_size_mb: 10
+  request_timeout: 30
+  
+# Monitoring and Alerts
+monitoring:
+  enable_prometheus: true
+  log_verifications: true
+  alert_on_failure: true
+  alert_threshold: 0.75          # Alert when similarity < threshold
+  alert_recipients:
+    - "admin@telehealth.com"
+    - "security@telehealth.com"
+    
+# Performance
+performance:
+  device: "auto"  # auto, cpu, cuda
+  batch_size: 8
+  num_workers: 2
+  inference_mode: true
+  
+# Logging
+logging:
+  level: "INFO"
+  format: "<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan> - <level>{message}</level>"
+  rotation: "500 MB"
+  retention: "10 days"
+  
+# Paths
+paths:
+  models_dir: "models"
+  logs_dir: "logs"
+  temp_dir: "temp"
+  checkpoint_dir: "models/checkpoints"

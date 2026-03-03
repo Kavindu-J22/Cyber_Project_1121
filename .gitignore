@@ -1,0 +1,31 @@
+# Virtual Environments (ALL folders)
+**/.venv/
+**/venv/
+**/env/
+**/ENV/
+
+# Python
+**/__pycache__/
+**/*.py[cod]
+**/*$py.class
+
+# Large Model Files (except .pth - using Git LFS)
+# **/*.pth  # Now tracked by Git LFS
+**/*.pt
+**/*.h5
+**/*.ckpt
+
+# IDE
+.vscode/
+.idea/
+
+# Logs
+**/logs/
+**/*.log
+
+# Node modules
+**/node_modules/
+
+# Dependencies
+**/package-lock.json
+**/yarn.lock

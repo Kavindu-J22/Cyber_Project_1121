@@ -13,6 +13,7 @@ export const useAuth = () => {
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
+  const [userRole, setUserRole] = useState(localStorage.getItem('userRole'));
   const [token, setToken] = useState(localStorage.getItem('token'));
   const [loading, setLoading] = useState(true);
 
@@ -27,8 +28,20 @@ export const AuthProvider = ({ children }) => {
 
   const fetchUser = async () => {
     try {
-      const response = await axios.get('/api/doctors/me');
-      setUser(response.data.data);
+      const role = localStorage.getItem('userRole');
+
+      if (role === 'admin') {
+        setUser({ id: 'admin', email: 'admin', role: 'admin', fullName: 'Administrator' });
+        setUserRole('admin');
+      } else if (role === 'doctor') {
+        const response = await axios.get('/api/doctors/me');
+        setUser({ ...response.data.data.doctor, role: 'doctor' });
+        setUserRole('doctor');
+      } else if (role === 'patient') {
+        const response = await axios.get('/api/patients/me');
+        setUser({ ...response.data.data.patient, role: 'patient' });
+        setUserRole('patient');
+      }
     } catch (error) {
       console.error('Failed to fetch user:', error);
       logout();
@@ -39,13 +52,15 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     const response = await axios.post('/api/auth/login', { email, password });
-    const { token, doctor } = response.data.data;
-    
+    const { token, user, role } = response.data.data;
+
     localStorage.setItem('token', token);
+    localStorage.setItem('userRole', role);
     setToken(token);
-    setUser(doctor);
+    setUser({ ...user, role });
+    setUserRole(role);
     axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-    
+
     return response.data;
   };
 
@@ -55,31 +70,53 @@ export const AuthProvider = ({ children }) => {
         'Content-Type': 'multipart/form-data',
       },
     });
-    
+
     const { token, doctor } = response.data.data;
-    
+
     localStorage.setItem('token', token);
+    localStorage.setItem('userRole', 'doctor');
     setToken(token);
-    setUser(doctor);
+    setUser({ ...doctor, role: 'doctor' });
+    setUserRole('doctor');
     axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-    
+
+    return response.data;
+  };
+
+  const registerPatient = async (patientData) => {
+    const response = await axios.post('/api/auth/register-patient', patientData);
+
+    const { token, patient } = response.data.data;
+
+    localStorage.setItem('token', token);
+    localStorage.setItem('userRole', 'patient');
+    setToken(token);
+    setUser({ ...patient, role: 'patient' });
+    setUserRole('patient');
+    axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+
     return response.data;
   };
 
   const logout = () => {
     localStorage.removeItem('token');
+    localStorage.removeItem('userRole');
     setToken(null);
     setUser(null);
+    setUserRole(null);
     delete axios.defaults.headers.common['Authorization'];
   };
 
   const value = {
     user,
+    userRole,
     token,
     loading,
     login,
     register,
+    registerPatient,
     logout,
+    fetchUser,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
