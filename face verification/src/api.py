@@ -22,6 +22,9 @@ from src.face_verification import FaceVerificationEngine
 # Initialize configuration
 config = get_config()
 
+# Persistence path — enrollments survive restarts
+ENROLLMENTS_PATH = Path(__file__).parent.parent / 'data' / 'enrollments.pkl'
+
 # Initialize FastAPI app
 app = FastAPI(
     title="Face Verification API",
@@ -54,6 +57,12 @@ async def startup_event():
     try:
         verification_engine = FaceVerificationEngine(config)
         logger.info("✓ Verification engine initialized")
+        # Load persisted enrollments if available
+        if ENROLLMENTS_PATH.exists():
+            try:
+                verification_engine.load_enrollments(str(ENROLLMENTS_PATH))
+            except Exception as load_err:
+                logger.warning(f"Could not load persisted enrollments: {load_err}")
     except Exception as e:
         logger.error(f"✗ Failed to initialize verification engine: {e}")
         raise
@@ -145,9 +154,15 @@ async def enroll_user(
         
         # Perform enrollment
         result = verification_engine.enroll_user(user_id, temp_files)
-        
+
         logger.info(f"✓ Enrollment successful for user: {user_id}")
-        
+
+        # Persist enrollments to disk so they survive restarts
+        try:
+            verification_engine.save_enrollments(str(ENROLLMENTS_PATH))
+        except Exception as save_err:
+            logger.warning(f"Could not persist enrollments: {save_err}")
+
         return JSONResponse(
             status_code=status.HTTP_200_OK,
             content={
@@ -217,12 +232,27 @@ async def verify_user(
         
         # Perform verification
         result = verification_engine.verify_user(user_id, temp_file, threshold)
-        
+
+        # Handle case where user is not enrolled (no 'decision' key)
+        if not result.get('success', True):
+            logger.warning(f"User {user_id} not enrolled or verification failed: {result.get('reason', 'unknown')}")
+            return JSONResponse(
+                status_code=status.HTTP_200_OK,
+                content={
+                    "success": True,
+                    "data": {
+                        **result,
+                        "decision": "NOT_ENROLLED",
+                        "confidence_score": 0.0
+                    }
+                }
+            )
+
         logger.info(
             f"✓ Verification complete for {user_id}: "
-            f"{result['decision']} (confidence: {result.get('confidence_score', 0):.4f})"
+            f"{result.get('decision', 'UNKNOWN')} (confidence: {result.get('confidence_score', 0):.4f})"
         )
-        
+
         return JSONResponse(
             status_code=status.HTTP_200_OK,
             content={

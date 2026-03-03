@@ -13,6 +13,8 @@ import json
 import asyncio
 import uuid
 
+from pathlib import Path
+
 from src.config_loader import get_config
 from src.speaker_verification import SpeakerVerificationEngine
 from src.anti_spoofing import AntiSpoofingClassifier
@@ -26,6 +28,9 @@ from src.api_models import (
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Persistence path — speakers survive restarts
+SPEAKERS_PATH = Path(__file__).parent.parent / 'data' / 'speakers.pkl'
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -64,12 +69,20 @@ async def startup_event():
     try:
         verification_engine = SpeakerVerificationEngine(config)
         logger.info("✓ Speaker verification engine initialized")
-        
+
+        # Load persisted speakers if available
+        if SPEAKERS_PATH.exists():
+            try:
+                verification_engine.load_speakers(str(SPEAKERS_PATH))
+                logger.info(f"✓ Loaded {len(verification_engine.enrolled_speakers)} persisted speakers")
+            except Exception as load_err:
+                logger.warning(f"Could not load persisted speakers: {load_err}")
+
         anti_spoofing = AntiSpoofingClassifier(config)
         logger.info("✓ Anti-spoofing classifier initialized")
-        
+
         logger.info("🚀 Voiceprint Analysis API is ready!")
-        
+
     except Exception as e:
         logger.error(f"Failed to initialize models: {e}")
         raise
@@ -113,6 +126,12 @@ async def enroll_speaker(request: EnrollmentRequest):
         )
 
         logger.info(f"Speaker {request.speaker_id} enrolled successfully")
+
+        # Persist to disk so enrollments survive restarts
+        try:
+            verification_engine.save_speakers(str(SPEAKERS_PATH))
+        except Exception as save_err:
+            logger.warning(f"Could not persist speakers: {save_err}")
 
         return EnrollmentResponse(
             **result,
@@ -158,6 +177,12 @@ async def enroll_speaker_upload(
             )
 
             logger.info(f"Speaker {speaker_id} enrolled successfully via upload")
+
+            # Persist to disk so enrollments survive restarts
+            try:
+                verification_engine.save_speakers(str(SPEAKERS_PATH))
+            except Exception as save_err:
+                logger.warning(f"Could not persist speakers: {save_err}")
 
             return {
                 **result,

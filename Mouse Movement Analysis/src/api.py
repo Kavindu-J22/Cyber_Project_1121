@@ -7,6 +7,7 @@ from fastapi import FastAPI, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from typing import List, Dict, Optional
+from pathlib import Path
 import torch
 import numpy as np
 from loguru import logger
@@ -22,6 +23,9 @@ from .anomaly_detection import AnomalyDetector
 
 # Load configuration
 config = load_config('config.yaml')
+
+# Persistence path — templates survive restarts
+TEMPLATES_PATH = Path(__file__).parent.parent / 'data' / 'templates.pth'
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -153,11 +157,19 @@ async def startup_event():
     if model is not None:
         verifier = MouseVerifier(model, config)
         logger.info("Verifier initialized")
-    
+
+        # Load persisted templates if available
+        if TEMPLATES_PATH.exists():
+            try:
+                verifier.load_templates(str(TEMPLATES_PATH))
+                logger.info(f"✓ Loaded {len(verifier.user_templates)} persisted mouse templates")
+            except Exception as load_err:
+                logger.warning(f"Could not load persisted mouse templates: {load_err}")
+
     # Initialize anomaly detector
     anomaly_detector = AnomalyDetector(config)
     logger.info("Anomaly detector initialized")
-    
+
     logger.info("API initialization complete")
 
 
@@ -244,6 +256,13 @@ async def enroll_user(request: EnrollmentRequest):
     try:
         result = verifier.enroll_user(request.user_id, features_tensor)
 
+        # Persist to disk so templates survive restarts
+        try:
+            TEMPLATES_PATH.parent.mkdir(parents=True, exist_ok=True)
+            verifier.save_templates(str(TEMPLATES_PATH))
+        except Exception as save_err:
+            logger.warning(f"Could not persist mouse templates: {save_err}")
+
         return EnrollmentResponse(
             user_id=request.user_id,
             enrolled=True,
@@ -280,9 +299,9 @@ async def verify_user(request: VerificationRequest):
             detail=f"Insufficient events. Need at least {config.features.min_events}"
         )
 
-    # Normalize features
+    # Normalize features (auto-fit scaler on first call if not yet fitted)
     features = features.reshape(1, -1)
-    features_normalized = preprocessor.normalize_features(features, fit=False)
+    features_normalized = preprocessor.normalize_features(features, fit=not preprocessor.is_fitted)
     features_tensor = torch.FloatTensor(features_normalized)
 
     # Verify user
@@ -329,9 +348,9 @@ async def continuous_monitoring(request: ContinuousMonitoringRequest):
             detail=f"Insufficient events. Need at least {config.features.min_events}"
         )
 
-    # Normalize features
+    # Normalize features (auto-fit scaler on first call if not yet fitted)
     features = features.reshape(1, -1)
-    features_normalized = preprocessor.normalize_features(features, fit=False)
+    features_normalized = preprocessor.normalize_features(features, fit=not preprocessor.is_fitted)
     features_tensor = torch.FloatTensor(features_normalized)
 
     # Continuous verification

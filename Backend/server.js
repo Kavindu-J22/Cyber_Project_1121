@@ -155,6 +155,12 @@ io.on('connection', (socket) => {
     io.to(msg.sessionId).emit('chat-message', msg);
   });
 
+  // ── Doctor Biometric Scores → relay to patient ────────────────
+  socket.on('doctor-biometric-update', ({ sessionId, scores }) => {
+    // Relay to everyone else in the room (patients)
+    socket.to(sessionId).emit('doctor-biometric-update', { scores });
+  });
+
   // ── Biometric Verification ────────────────────────────────────
   socket.on('verify-biometric', async (data) => {
     try {

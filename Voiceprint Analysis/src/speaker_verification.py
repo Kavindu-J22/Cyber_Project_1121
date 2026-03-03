@@ -318,3 +318,31 @@ class SpeakerVerificationEngine:
         # Don't return the actual embedding for security
         info.pop('voiceprint_template', None)
         return info
+
+    def save_speakers(self, filepath: str):
+        """Save enrolled speakers to disk (survives restarts)"""
+        import pickle
+        import os
+        os.makedirs(os.path.dirname(filepath), exist_ok=True)
+        data = {}
+        for speaker_id, info in self.enrolled_speakers.items():
+            data[speaker_id] = {
+                **{k: v for k, v in info.items() if k != 'voiceprint_template'},
+                'voiceprint_template': info['voiceprint_template'].tolist()
+            }
+        with open(filepath, 'wb') as f:
+            pickle.dump(data, f)
+        print(f"✓ Saved {len(self.enrolled_speakers)} speakers to {filepath}")
+
+    def load_speakers(self, filepath: str):
+        """Load enrolled speakers from disk"""
+        import pickle
+        with open(filepath, 'rb') as f:
+            data = pickle.load(f)
+        self.enrolled_speakers = {}
+        for speaker_id, info in data.items():
+            self.enrolled_speakers[speaker_id] = {
+                **{k: v for k, v in info.items() if k != 'voiceprint_template'},
+                'voiceprint_template': np.array(info['voiceprint_template'])
+            }
+        print(f"✓ Loaded {len(self.enrolled_speakers)} speakers from {filepath}")

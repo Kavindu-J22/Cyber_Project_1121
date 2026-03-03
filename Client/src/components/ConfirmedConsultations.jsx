@@ -191,9 +191,9 @@ const ConfirmedConsultations = () => {
             <div>
               <h3 className="text-lg font-bold text-gray-900">{appointment.appointmentNumber}</h3>
               <p className="text-sm text-gray-600">
-                Dr. {appointment.doctorId.firstName} {appointment.doctorId.lastName}
+                Dr. {appointment.doctorId?.firstName ?? 'Unknown'} {appointment.doctorId?.lastName ?? ''}
               </p>
-              <p className="text-xs text-gray-500">{appointment.doctorId.specialization}</p>
+              <p className="text-xs text-gray-500">{appointment.doctorId?.specialization ?? ''}</p>
             </div>
             <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
               <CheckCircle className="h-4 w-4 mr-1" />

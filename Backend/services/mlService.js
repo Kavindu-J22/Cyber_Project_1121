@@ -62,7 +62,7 @@ class MLService {
       formData.append('speaker_id', userId);
 
       const response = await axios.post(
-        `${this.voiceApiUrl}/api/v1/verify`,
+        `${this.voiceApiUrl}/api/v1/verify/upload`,
         formData,
         {
           headers: formData.getHeaders(),

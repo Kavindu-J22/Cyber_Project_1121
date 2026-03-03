@@ -9,7 +9,7 @@ import {
   Activity, AlertTriangle, CheckCircle, TrendingUp,
   MessageSquare, Send, Users, X
 } from 'lucide-react';
-import { KeystrokeCapture, MouseCapture } from '../utils/biometricCapture';
+import { KeystrokeCapture, MouseCapture, FaceCapture, VoiceCapture } from '../utils/biometricCapture';
 
 const ICE_SERVERS = {
   iceServers: [
@@ -38,6 +38,15 @@ const Meeting = () => {
   const [verificationLogs, setVerificationLogs] = useState([]);
   const [alerts, setAlerts] = useState([]);
 
+  // Per-modality confidence scores (0-1, null = no data yet)
+  const [faceConf, setFaceConf] = useState(null);
+  const [voiceConf, setVoiceConf] = useState(null);
+  const [keystrokeConf, setKeystrokeConf] = useState(null);
+  const [mouseConf, setMouseConf] = useState(null);
+
+  // Doctor's biometric scores as seen by the patient
+  const [doctorScores, setDoctorScores] = useState({ face: null, voice: null, keystroke: null, mouse: null });
+
   // Chat
   const [showChat, setShowChat] = useState(false);
   const [messages, setMessages] = useState([]);
@@ -58,7 +67,14 @@ const Meeting = () => {
   const showChatRef = useRef(false);
   const keystrokeCapture = useRef(new KeystrokeCapture());
   const mouseCapture = useRef(new MouseCapture());
+  const faceCapture = useRef(new FaceCapture());
+  const voiceCaptureRef = useRef(new VoiceCapture());
   const verificationInterval = useRef(null);
+  const faceIntervalRef = useRef(null);
+  const voiceIntervalRef = useRef(null);
+  // Refs to track media state inside async interval callbacks (avoid stale closures)
+  const isVideoOnRef = useRef(true);
+  const isAudioOnRef = useRef(true);
 
   useEffect(() => {
     let mounted = true;
@@ -103,13 +119,22 @@ const Meeting = () => {
     };
 
     const init = async () => {
-      // 1. Get local camera + mic
+      // 1. Get local camera + mic (with graceful fallback)
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
         localStreamRef.current = stream;
         if (localVideoRef.current) localVideoRef.current.srcObject = stream;
       } catch {
-        toast.error('Failed to access camera/microphone');
+        // Fallback 1: try audio-only
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ video: false, audio: true });
+          localStreamRef.current = stream;
+          if (localVideoRef.current) localVideoRef.current.srcObject = stream;
+          toast('Camera unavailable — joined with audio only', { icon: '⚠️' });
+        } catch {
+          // Fallback 2: notify user — they can still see remote video
+          toast.error('Could not access camera/microphone. Check browser permissions and try again.');
+        }
       }
 
       // 2. Connect socket
@@ -211,21 +236,98 @@ const Meeting = () => {
         toast.error(data.message, { duration: 5000 });
       });
 
-      // Start biometric monitoring
-      keystrokeCapture.current.start();
-      mouseCapture.current.start();
-      verificationInterval.current = setInterval(() => {
-        const kf = keystrokeCapture.current.getFeatures();
-        if (kf.some(f => f !== 0)) {
-          sock.emit('verify-biometric', { sessionId, doctorId: user.id, type: 'keystroke', payload: kf });
-          keystrokeCapture.current.start();
-        }
-        const me = mouseCapture.current.getEvents();
-        if (me.length > 50) {
-          sock.emit('verify-biometric', { sessionId, doctorId: user.id, type: 'mouse', payload: me });
-          mouseCapture.current.start();
-        }
-      }, 10000);
+      // Doctor's biometric scores (received by the patient)
+      sock.on('doctor-biometric-update', ({ scores }) => {
+        if (!mounted) return;
+        setDoctorScores(scores);
+      });
+
+      // ── Biometric Monitoring (doctor only) ─────────────────────
+      if (isDoctor) {
+        keystrokeCapture.current.start();
+        mouseCapture.current.start();
+
+        // Keystroke + Mouse: every 10 s via REST
+        verificationInterval.current = setInterval(async () => {
+          const token = localStorage.getItem('token');
+
+          // Keystroke
+          const kf = keystrokeCapture.current.getFeatures();
+          if (kf.some(f => f !== 0)) {
+            try {
+              const r = await axios.post('/api/verification/keystroke',
+                { keystrokeSample: kf },
+                { headers: { Authorization: `Bearer ${token}` } }
+              );
+              if (mounted) setKeystrokeConf(r.data.data?.confidence ?? null);
+            } catch (e) { console.error('Keystroke verification error:', e); }
+            keystrokeCapture.current.start();
+          }
+
+          // Mouse
+          const me = mouseCapture.current.getEvents();
+          if (me.length > 10) {
+            try {
+              const r = await axios.post('/api/verification/mouse',
+                { mouseEvents: me },
+                { headers: { Authorization: `Bearer ${token}` } }
+              );
+              if (mounted) setMouseConf(r.data.data?.confidence ?? null);
+            } catch (e) { console.error('Mouse verification error:', e); }
+            mouseCapture.current.start();
+          }
+        }, 10000);
+
+        // Face: every 5 s via REST
+        faceIntervalRef.current = setInterval(async () => {
+          if (!isVideoOnRef.current || !localVideoRef.current?.srcObject) return;
+          try {
+            const frame = await faceCapture.current.captureFrame(localVideoRef.current);
+            const fd = new FormData();
+            fd.append('faceSample', frame, 'face.jpg');
+            const token = localStorage.getItem('token');
+            const r = await axios.post('/api/verification/face', fd, {
+              headers: { Authorization: `Bearer ${token}` }
+            });
+            if (mounted) setFaceConf(r.data.data?.confidence_score ?? null);
+          } catch (e) { console.error('Face verification error:', e); }
+        }, 5000);
+
+        // Voice: record 5s every 20s via REST — reuse existing WebRTC audio track
+        let isRecordingVoice = false;
+        voiceIntervalRef.current = setInterval(async () => {
+          if (!isAudioOnRef.current || isRecordingVoice || !localStreamRef.current) return;
+          const audioTracks = localStreamRef.current.getAudioTracks();
+          if (!audioTracks.length) return;
+          isRecordingVoice = true;
+          try {
+            const audioStream = new MediaStream(audioTracks);
+            const chunks = [];
+            const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+              ? 'audio/webm;codecs=opus'
+              : MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : '';
+            const recorder = new MediaRecorder(audioStream, mimeType ? { mimeType } : {});
+            recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
+            recorder.start();
+            await new Promise(res => setTimeout(res, 5000));
+            recorder.stop();
+            await new Promise(res => { recorder.onstop = res; });
+            if (!mounted || !isAudioOnRef.current) return;
+            const rawBlob = new Blob(chunks, { type: recorder.mimeType || 'audio/webm' });
+            const wavBlob = await voiceCaptureRef.current.convertToWav(rawBlob);
+            if (wavBlob) {
+              const fd = new FormData();
+              fd.append('voiceSample', wavBlob, 'voice.wav');
+              const token = localStorage.getItem('token');
+              const r = await axios.post('/api/verification/voice', fd, {
+                headers: { Authorization: `Bearer ${token}` }
+              });
+              if (mounted) setVoiceConf(r.data.data?.confidence_score ?? null);
+            }
+          } catch (e) { console.error('Voice verification error:', e); }
+          finally { isRecordingVoice = false; }
+        }, 20000);
+      }
     };
 
     init();
@@ -236,6 +338,10 @@ const Meeting = () => {
       peerConnectionRef.current?.close();
       socketRef.current?.disconnect();
       if (verificationInterval.current) clearInterval(verificationInterval.current);
+      if (faceIntervalRef.current) clearInterval(faceIntervalRef.current);
+      if (voiceIntervalRef.current) clearInterval(voiceIntervalRef.current);
+      // Stop any in-progress voice recording
+      voiceCaptureRef.current.stop().catch(() => {});
     };
   }, [sessionId, user, isDoctor, navigate]);
 
@@ -250,14 +356,45 @@ const Meeting = () => {
     chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  // Compute overall trust score from live per-modality confidences (doctor only)
+  useEffect(() => {
+    if (!isDoctor) return;
+    const values = [faceConf, voiceConf, keystrokeConf, mouseConf].filter(v => v !== null);
+    if (values.length > 0) {
+      const avg = values.reduce((a, b) => a + b, 0) / values.length;
+      setTrustScore(Math.round(avg * 100));
+    }
+  }, [faceConf, voiceConf, keystrokeConf, mouseConf, isDoctor]);
+
+  // Emit doctor's biometric scores to the patient via socket
+  useEffect(() => {
+    if (!isDoctor || !socketRef.current || !sessionId) return;
+    socketRef.current.emit('doctor-biometric-update', {
+      sessionId,
+      scores: { face: faceConf, voice: voiceConf, keystroke: keystrokeConf, mouse: mouseConf }
+    });
+  }, [faceConf, voiceConf, keystrokeConf, mouseConf, isDoctor, sessionId]);
+
   const toggleVideo = () => {
     const t = localStreamRef.current?.getVideoTracks()[0];
-    if (t) { t.enabled = !t.enabled; setIsVideoOn(t.enabled); }
+    if (t) {
+      t.enabled = !t.enabled;
+      setIsVideoOn(t.enabled);
+      isVideoOnRef.current = t.enabled;
+      // Clear stale face confidence when camera turns off
+      if (!t.enabled) setFaceConf(null);
+    }
   };
 
   const toggleAudio = () => {
     const t = localStreamRef.current?.getAudioTracks()[0];
-    if (t) { t.enabled = !t.enabled; setIsAudioOn(t.enabled); }
+    if (t) {
+      t.enabled = !t.enabled;
+      setIsAudioOn(t.enabled);
+      isAudioOnRef.current = t.enabled;
+      // Clear stale voice confidence when mic turns off
+      if (!t.enabled) setVoiceConf(null);
+    }
   };
 
   const endCall = async () => {
@@ -464,8 +601,13 @@ const Meeting = () => {
                     value={newMessage}
                     onChange={(e) => setNewMessage(e.target.value)}
                     onKeyDown={(e) => {
-                      e.stopPropagation();
+                      // Forward to keystroke capture BEFORE handling chat logic
+                      if (isDoctor) keystrokeCapture.current.handleKeyDown(e);
                       if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChatMessage(); }
+                      // Note: NO e.stopPropagation() — allow event to reach the parent div capture
+                    }}
+                    onKeyUp={(e) => {
+                      if (isDoctor) keystrokeCapture.current.handleKeyUp(e);
                     }}
                     placeholder="Type a message…"
                     className="flex-1 bg-gray-700 text-white placeholder-gray-400 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
@@ -477,64 +619,257 @@ const Meeting = () => {
                 </div>
               </div>
             </div>
-          ) : (
-            /* Verification Panel */
-            <div className="overflow-y-auto p-4">
-              <h3 className="text-white font-semibold mb-4 flex items-center">
-                <Shield className="h-5 w-5 mr-2 text-primary-400" />Real-time Verification
+          ) : isDoctor ? (
+            /* ── Doctor: Live Biometric Verification Panel ── */
+            <div className="overflow-y-auto p-4 space-y-3">
+              <h3 className="text-white font-semibold flex items-center gap-2 mb-1">
+                <Shield className="h-5 w-5 text-primary-400" />Real-time Verification
               </h3>
-              <div className="space-y-3 mb-6">
-                {[{ label: 'Voice Recognition', w: '95%' }, { label: 'Keystroke Dynamics', w: '92%' }, { label: 'Mouse Movement', w: '88%' }].map(item => (
-                  <div key={item.label} className="bg-gray-700 rounded-lg p-3">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm text-gray-300">{item.label}</span>
-                      <CheckCircle className="h-4 w-4 text-green-400" />
-                    </div>
-                    <div className="w-full bg-gray-600 rounded-full h-2">
-                      <div className="bg-green-500 h-2 rounded-full" style={{ width: item.w }} />
-                    </div>
-                  </div>
-                ))}
+
+              {/* Overall Trust Score */}
+              <div className="bg-gray-700/60 rounded-lg p-3 mb-2">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs text-gray-400 uppercase tracking-wide">Overall Trust</span>
+                  <span className={`font-bold text-base ${trustColor(trustScore)}`}>{trustScore}%</span>
+                </div>
+                <div className="w-full bg-gray-600 rounded-full h-2">
+                  <div className={`h-2 rounded-full transition-all duration-700 ${
+                    trustScore >= 80 ? 'bg-green-500' : trustScore >= 60 ? 'bg-yellow-500' : 'bg-red-500'
+                  }`} style={{ width: `${trustScore}%` }} />
+                </div>
               </div>
+
+              {/* ── Face Recognition ── */}
+              <div className="bg-gray-700 rounded-lg p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <Video className="h-4 w-4 text-blue-400" />
+                    <span className="text-sm text-gray-300">Face Recognition</span>
+                  </div>
+                  {isVideoOn && faceConf !== null
+                    ? (faceConf >= 0.5 ? <CheckCircle className="h-4 w-4 text-green-400" /> : <AlertTriangle className="h-4 w-4 text-red-400" />)
+                    : <span className="text-xs text-gray-500">{isVideoOn ? '⏳' : '📷'}</span>
+                  }
+                </div>
+                {!isVideoOn ? (
+                  <p className="text-xs text-gray-500 italic">Camera Off — face verification paused</p>
+                ) : faceConf === null ? (
+                  <p className="text-xs text-gray-500 italic">Waiting for first capture…</p>
+                ) : (
+                  <>
+                    <div className="w-full bg-gray-600 rounded-full h-2">
+                      <div className={`h-2 rounded-full transition-all duration-700 ${faceConf >= 0.8 ? 'bg-green-500' : faceConf >= 0.5 ? 'bg-yellow-500' : 'bg-red-500'}`}
+                        style={{ width: `${Math.round(faceConf * 100)}%` }} />
+                    </div>
+                    <p className="text-xs text-gray-400 mt-1 text-right">{Math.round(faceConf * 100)}% confidence</p>
+                  </>
+                )}
+              </div>
+
+              {/* ── Voice Recognition ── */}
+              <div className="bg-gray-700 rounded-lg p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <Mic className="h-4 w-4 text-purple-400" />
+                    <span className="text-sm text-gray-300">Voice Recognition</span>
+                  </div>
+                  {isAudioOn && voiceConf !== null
+                    ? (voiceConf >= 0.5 ? <CheckCircle className="h-4 w-4 text-green-400" /> : <AlertTriangle className="h-4 w-4 text-red-400" />)
+                    : <span className="text-xs text-gray-500">{isAudioOn ? '⏳' : '🎤'}</span>
+                  }
+                </div>
+                {!isAudioOn ? (
+                  <p className="text-xs text-gray-500 italic">Mic Off — voice verification paused</p>
+                ) : voiceConf === null ? (
+                  <p className="text-xs text-gray-500 italic">Recording first sample (5s)…</p>
+                ) : (
+                  <>
+                    <div className="w-full bg-gray-600 rounded-full h-2">
+                      <div className={`h-2 rounded-full transition-all duration-700 ${voiceConf >= 0.8 ? 'bg-green-500' : voiceConf >= 0.5 ? 'bg-yellow-500' : 'bg-red-500'}`}
+                        style={{ width: `${Math.round(voiceConf * 100)}%` }} />
+                    </div>
+                    <p className="text-xs text-gray-400 mt-1 text-right">{Math.round(voiceConf * 100)}% confidence</p>
+                  </>
+                )}
+              </div>
+
+              {/* ── Keystroke Dynamics ── */}
+              <div className="bg-gray-700 rounded-lg p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <Activity className="h-4 w-4 text-yellow-400" />
+                    <span className="text-sm text-gray-300">Keystroke Dynamics</span>
+                  </div>
+                  {keystrokeConf !== null
+                    ? (keystrokeConf >= 0.5 ? <CheckCircle className="h-4 w-4 text-green-400" /> : <AlertTriangle className="h-4 w-4 text-red-400" />)
+                    : <span className="text-xs text-gray-500">⌨️</span>
+                  }
+                </div>
+                {keystrokeConf === null ? (
+                  <p className="text-xs text-gray-500 italic">Type anything to begin…</p>
+                ) : (
+                  <>
+                    <div className="w-full bg-gray-600 rounded-full h-2">
+                      <div className={`h-2 rounded-full transition-all duration-700 ${keystrokeConf >= 0.8 ? 'bg-green-500' : keystrokeConf >= 0.5 ? 'bg-yellow-500' : 'bg-red-500'}`}
+                        style={{ width: `${Math.round(keystrokeConf * 100)}%` }} />
+                    </div>
+                    <p className="text-xs text-gray-400 mt-1 text-right">{Math.round(keystrokeConf * 100)}% confidence</p>
+                  </>
+                )}
+              </div>
+
+              {/* ── Mouse Movement ── */}
+              <div className="bg-gray-700 rounded-lg p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <TrendingUp className="h-4 w-4 text-green-400" />
+                    <span className="text-sm text-gray-300">Mouse Movement</span>
+                  </div>
+                  {mouseConf !== null
+                    ? (mouseConf >= 0.5 ? <CheckCircle className="h-4 w-4 text-green-400" /> : <AlertTriangle className="h-4 w-4 text-red-400" />)
+                    : <span className="text-xs text-gray-500">🖱️</span>
+                  }
+                </div>
+                {mouseConf === null ? (
+                  <p className="text-xs text-gray-500 italic">Move mouse to begin…</p>
+                ) : (
+                  <>
+                    <div className="w-full bg-gray-600 rounded-full h-2">
+                      <div className={`h-2 rounded-full transition-all duration-700 ${mouseConf >= 0.8 ? 'bg-green-500' : mouseConf >= 0.5 ? 'bg-yellow-500' : 'bg-red-500'}`}
+                        style={{ width: `${Math.round(mouseConf * 100)}%` }} />
+                    </div>
+                    <p className="text-xs text-gray-400 mt-1 text-right">{Math.round(mouseConf * 100)}% confidence</p>
+                  </>
+                )}
+              </div>
+
+              {/* Alerts */}
               {alerts.length > 0 && (
-                <div className="mb-6">
-                  <h4 className="text-white font-semibold mb-2 flex items-center">
-                    <AlertTriangle className="h-4 w-4 mr-2 text-yellow-400" />Alerts
+                <div>
+                  <h4 className="text-white font-semibold mb-2 flex items-center gap-1">
+                    <AlertTriangle className="h-4 w-4 text-yellow-400" />Alerts
                   </h4>
                   <div className="space-y-2">
                     {alerts.slice(-5).reverse().map((alert, i) => (
-                      <div key={i} className={`p-2 rounded-lg ${alert.severity === 'high' || alert.severity === 'critical' ? 'bg-red-900/50 border border-red-700' : 'bg-yellow-900/50 border border-yellow-700'}`}>
-                        <p className="text-xs text-white">{alert.message}</p>
-                        <p className="text-xs text-gray-400 mt-1">{alert.timestamp.toLocaleTimeString()}</p>
+                      <div key={i} className={`p-2 rounded-lg text-xs ${alert.severity === 'high' || alert.severity === 'critical' ? 'bg-red-900/50 border border-red-700' : 'bg-yellow-900/50 border border-yellow-700'}`}>
+                        <p className="text-white">{alert.message}</p>
+                        <p className="text-gray-400 mt-0.5">{alert.timestamp.toLocaleTimeString()}</p>
                       </div>
                     ))}
                   </div>
                 </div>
               )}
-              <h4 className="text-white font-semibold mb-2 flex items-center">
-                <TrendingUp className="h-4 w-4 mr-2 text-primary-400" />Recent Verifications
-              </h4>
-              <div className="space-y-2">
-                {verificationLogs.length === 0 && (
-                  <div className="text-center py-8 text-gray-500 text-sm">Waiting for verification data…</div>
-                )}
-                {verificationLogs.slice(-10).reverse().map((log, i) => (
-                  <div key={i} className="bg-gray-700 rounded-lg p-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs text-gray-300 capitalize">{log.type}</span>
-                      <span className={`text-xs font-semibold ${log.result.verified ? 'text-green-400' : 'text-red-400'}`}>
-                        {log.result.verified ? '✓ Verified' : '✗ Failed'}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between mt-1">
-                      <span className="text-xs text-gray-400">Confidence: {(log.result.confidence * 100).toFixed(1)}%</span>
-                      <span className="text-xs text-gray-500">{log.timestamp.toLocaleTimeString()}</span>
-                    </div>
-                  </div>
-                ))}
+
+              <div className="p-3 bg-blue-900/30 border border-blue-700 rounded-lg">
+                <p className="text-xs text-blue-300">🔒 All 4 biometrics verified continuously against your registered profile.</p>
               </div>
-              <div className="mt-6 p-3 bg-blue-900/30 border border-blue-700 rounded-lg">
-                <p className="text-xs text-blue-300">🔒 Biometric data is continuously verified for secure consultation.</p>
+            </div>
+          ) : (
+            /* ── Patient: Doctor's Live Biometric Verification ── */
+            <div className="overflow-y-auto p-4 space-y-3">
+              <h3 className="text-white font-semibold flex items-center gap-2 mb-1">
+                <Shield className="h-5 w-5 text-primary-400" />Doctor Verification
+              </h3>
+              <p className="text-xs text-gray-500 mb-2">Live biometric verification of your doctor's identity</p>
+
+              {/* Face Recognition */}
+              <div className="bg-gray-700 rounded-lg p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <Video className="h-4 w-4 text-blue-400" />
+                    <span className="text-sm text-gray-300">Face Recognition</span>
+                  </div>
+                  {doctorScores.face !== null
+                    ? (doctorScores.face >= 0.5 ? <CheckCircle className="h-4 w-4 text-green-400" /> : <AlertTriangle className="h-4 w-4 text-red-400" />)
+                    : <span className="text-xs text-gray-500">⏳</span>}
+                </div>
+                {doctorScores.face === null ? (
+                  <p className="text-xs text-gray-500 italic">Waiting for doctor's camera…</p>
+                ) : (
+                  <>
+                    <div className="w-full bg-gray-600 rounded-full h-2">
+                      <div className={`h-2 rounded-full transition-all duration-700 ${doctorScores.face >= 0.8 ? 'bg-green-500' : doctorScores.face >= 0.5 ? 'bg-yellow-500' : 'bg-red-500'}`}
+                        style={{ width: `${Math.round(doctorScores.face * 100)}%` }} />
+                    </div>
+                    <p className="text-xs text-gray-400 mt-1 text-right">{Math.round(doctorScores.face * 100)}% confidence</p>
+                  </>
+                )}
+              </div>
+
+              {/* Voice Recognition */}
+              <div className="bg-gray-700 rounded-lg p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <Mic className="h-4 w-4 text-purple-400" />
+                    <span className="text-sm text-gray-300">Voice Recognition</span>
+                  </div>
+                  {doctorScores.voice !== null
+                    ? (doctorScores.voice >= 0.5 ? <CheckCircle className="h-4 w-4 text-green-400" /> : <AlertTriangle className="h-4 w-4 text-red-400" />)
+                    : <span className="text-xs text-gray-500">⏳</span>}
+                </div>
+                {doctorScores.voice === null ? (
+                  <p className="text-xs text-gray-500 italic">Waiting for voice sample…</p>
+                ) : (
+                  <>
+                    <div className="w-full bg-gray-600 rounded-full h-2">
+                      <div className={`h-2 rounded-full transition-all duration-700 ${doctorScores.voice >= 0.8 ? 'bg-green-500' : doctorScores.voice >= 0.5 ? 'bg-yellow-500' : 'bg-red-500'}`}
+                        style={{ width: `${Math.round(doctorScores.voice * 100)}%` }} />
+                    </div>
+                    <p className="text-xs text-gray-400 mt-1 text-right">{Math.round(doctorScores.voice * 100)}% confidence</p>
+                  </>
+                )}
+              </div>
+
+              {/* Keystroke Dynamics */}
+              <div className="bg-gray-700 rounded-lg p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <Activity className="h-4 w-4 text-yellow-400" />
+                    <span className="text-sm text-gray-300">Keystroke Dynamics</span>
+                  </div>
+                  {doctorScores.keystroke !== null
+                    ? (doctorScores.keystroke >= 0.5 ? <CheckCircle className="h-4 w-4 text-green-400" /> : <AlertTriangle className="h-4 w-4 text-red-400" />)
+                    : <span className="text-xs text-gray-500">⌨️</span>}
+                </div>
+                {doctorScores.keystroke === null ? (
+                  <p className="text-xs text-gray-500 italic">Waiting for keystroke data…</p>
+                ) : (
+                  <>
+                    <div className="w-full bg-gray-600 rounded-full h-2">
+                      <div className={`h-2 rounded-full transition-all duration-700 ${doctorScores.keystroke >= 0.8 ? 'bg-green-500' : doctorScores.keystroke >= 0.5 ? 'bg-yellow-500' : 'bg-red-500'}`}
+                        style={{ width: `${Math.round(doctorScores.keystroke * 100)}%` }} />
+                    </div>
+                    <p className="text-xs text-gray-400 mt-1 text-right">{Math.round(doctorScores.keystroke * 100)}% confidence</p>
+                  </>
+                )}
+              </div>
+
+              {/* Mouse Movement */}
+              <div className="bg-gray-700 rounded-lg p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <TrendingUp className="h-4 w-4 text-green-400" />
+                    <span className="text-sm text-gray-300">Mouse Movement</span>
+                  </div>
+                  {doctorScores.mouse !== null
+                    ? (doctorScores.mouse >= 0.5 ? <CheckCircle className="h-4 w-4 text-green-400" /> : <AlertTriangle className="h-4 w-4 text-red-400" />)
+                    : <span className="text-xs text-gray-500">🖱️</span>}
+                </div>
+                {doctorScores.mouse === null ? (
+                  <p className="text-xs text-gray-500 italic">Waiting for mouse data…</p>
+                ) : (
+                  <>
+                    <div className="w-full bg-gray-600 rounded-full h-2">
+                      <div className={`h-2 rounded-full transition-all duration-700 ${doctorScores.mouse >= 0.8 ? 'bg-green-500' : doctorScores.mouse >= 0.5 ? 'bg-yellow-500' : 'bg-red-500'}`}
+                        style={{ width: `${Math.round(doctorScores.mouse * 100)}%` }} />
+                    </div>
+                    <p className="text-xs text-gray-400 mt-1 text-right">{Math.round(doctorScores.mouse * 100)}% confidence</p>
+                  </>
+                )}
+              </div>
+
+              <div className="p-3 bg-blue-900/30 border border-blue-700 rounded-lg">
+                <p className="text-xs text-blue-300">🔒 Doctor's identity is continuously verified against their registered biometric profile in real time.</p>
               </div>
             </div>
           )}

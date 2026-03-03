@@ -7,6 +7,7 @@ from fastapi import FastAPI, HTTPException, Depends, status
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from typing import List, Dict, Optional
+from pathlib import Path
 import torch
 import numpy as np
 from loguru import logger
@@ -95,6 +96,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Persistence path — templates survive restarts
+TEMPLATES_PATH = Path(__file__).parent.parent / 'data' / 'templates.pth'
+
 # Global variables
 config = None
 model = None
@@ -137,10 +141,18 @@ async def startup_event():
             logger.warning("No checkpoint found, using untrained model")
         
         model.eval()
-        
+
         # Initialize verifier
         verifier = KeystrokeVerifier(model, config)
-        
+
+        # Load persisted templates if available
+        if TEMPLATES_PATH.exists():
+            try:
+                verifier.load_templates(str(TEMPLATES_PATH))
+                logger.info(f"✓ Loaded {len(verifier.enrolled_templates)} persisted keystroke templates")
+            except Exception as load_err:
+                logger.warning(f"Could not load persisted templates: {load_err}")
+
         logger.info("Keystroke Dynamics API started successfully")
         
     except Exception as e:
@@ -188,6 +200,13 @@ async def enroll_user(request: EnrollmentRequest):
         result = verifier.enroll_user(request.user_id, samples_tensor)
 
         if result['success']:
+            # Persist to disk so templates survive restarts
+            try:
+                TEMPLATES_PATH.parent.mkdir(parents=True, exist_ok=True)
+                verifier.save_templates(str(TEMPLATES_PATH))
+            except Exception as save_err:
+                logger.warning(f"Could not persist keystroke templates: {save_err}")
+
             return EnrollmentResponse(
                 success=True,
                 user_id=result['user_id'],
@@ -228,6 +247,19 @@ async def verify_user(request: VerificationRequest):
 
         # Add timestamp
         result['timestamp'] = datetime.now().isoformat()
+
+        # Handle not-enrolled case: verify_user returns minimal dict without alert/critical keys
+        if 'alert' not in result:
+            return VerificationResponse(
+                verified=False,
+                confidence=result.get('confidence', 0.0),
+                confidence_level='very_low',
+                alert=False,
+                critical=False,
+                latency_ms=0.0,
+                user_id=request.user_id,
+                timestamp=result['timestamp']
+            )
 
         # Log alert if needed
         if result['alert']:

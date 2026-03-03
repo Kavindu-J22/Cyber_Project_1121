@@ -314,10 +314,10 @@ class FaceVerificationEngine:
     def remove_enrollment(self, user_id: str) -> bool:
         """
         Remove user enrollment
-        
+
         Args:
             user_id: User to remove
-            
+
         Returns:
             True if removed, False if not found
         """
@@ -326,6 +326,40 @@ class FaceVerificationEngine:
             logger.info(f"Removed enrollment for user: {user_id}")
             return True
         return False
+
+    def save_enrollments(self, filepath: str):
+        """Save enrolled user data to disk (survives restarts)"""
+        import pickle
+        from pathlib import Path
+        Path(filepath).parent.mkdir(parents=True, exist_ok=True)
+        data = {}
+        for uid, emb_data in self.enrollments.items():
+            data[uid] = {
+                'embeddings': emb_data['embeddings'].tolist(),
+                'num_samples': emb_data['num_samples'],
+                'enrollment_time': emb_data['enrollment_time'],
+                'quality_score': emb_data['quality_score'],
+                'mean_embedding': emb_data['mean_embedding'].tolist()
+            }
+        with open(filepath, 'wb') as f:
+            pickle.dump(data, f)
+        logger.info(f"✓ Saved {len(self.enrollments)} face enrollments to {filepath}")
+
+    def load_enrollments(self, filepath: str):
+        """Load enrolled user data from disk"""
+        import pickle
+        with open(filepath, 'rb') as f:
+            data = pickle.load(f)
+        self.enrollments = {}
+        for uid, emb_data in data.items():
+            self.enrollments[uid] = {
+                'embeddings': np.array(emb_data['embeddings']),
+                'num_samples': emb_data['num_samples'],
+                'enrollment_time': emb_data['enrollment_time'],
+                'quality_score': emb_data['quality_score'],
+                'mean_embedding': np.array(emb_data['mean_embedding'])
+            }
+        logger.info(f"✓ Loaded {len(self.enrollments)} face enrollments from {filepath}")
 
 
 if __name__ == "__main__":

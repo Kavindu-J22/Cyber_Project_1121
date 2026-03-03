@@ -132,10 +132,14 @@ const MyAppointments = () => {
                 <div className="flex items-center text-gray-700 mb-2">
                   <User className="h-5 w-5 mr-2 text-primary-600" />
                   <span className="font-medium">
-                    Dr. {apt.doctorId.firstName} {apt.doctorId.lastName}
+                    {apt.doctorId
+                      ? `Dr. ${apt.doctorId.firstName} ${apt.doctorId.lastName}`
+                      : 'Doctor Unavailable'}
                   </span>
                 </div>
-                <p className="text-sm text-gray-600 ml-7">{apt.doctorId.specialization}</p>
+                <p className="text-sm text-gray-600 ml-7">
+                  {apt.doctorId?.specialization || '—'}
+                </p>
               </div>
 
               {/* Appointment Details */}
