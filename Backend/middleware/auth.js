@@ -56,6 +56,19 @@ export const protect = async (req, res, next) => {
   }
 };
 
+// Restrict to specific roles
+export const restrictTo = (...roles) => {
+  return (req, res, next) => {
+    if (!roles.includes(req.userRole)) {
+      return res.status(403).json({
+        success: false,
+        message: 'You do not have permission to perform this action'
+      });
+    }
+    next();
+  };
+};
+
 // Generate JWT Token with role
 export const generateToken = (id, role = 'doctor') => {
   return jwt.sign({ id, role }, process.env.JWT_SECRET, {

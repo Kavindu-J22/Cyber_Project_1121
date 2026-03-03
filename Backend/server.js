@@ -13,6 +13,7 @@ import sessionRoutes from './routes/sessionRoutes.js';
 import verificationRoutes from './routes/verificationRoutes.js';
 import otpRoutes from './routes/otpRoutes.js';
 import appointmentRoutes from './routes/appointmentRoutes.js';
+import consultationRoutes from './routes/consultationRoutes.js';
 import Session from './models/Session.js';
 import mlService from './services/mlService.js';
 import { verifyEmailConfig } from './utils/emailService.js';
@@ -57,6 +58,7 @@ app.use('/api/sessions', sessionRoutes);
 app.use('/api/verification', verificationRoutes);
 app.use('/api/otp', otpRoutes);
 app.use('/api/appointments', appointmentRoutes);
+app.use('/api/consultations', consultationRoutes);
 
 // Health check
 app.get('/api/health', async (req, res) => {

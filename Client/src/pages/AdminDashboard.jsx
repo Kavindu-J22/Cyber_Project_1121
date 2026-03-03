@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
 import toast from 'react-hot-toast';
-import { Shield, LogOut, Users, Stethoscope, Mail, Award, Briefcase, User as UserIcon, Search, Filter, Eye, Edit, Trash2, UserX, UserCheck2, ClipboardList } from 'lucide-react';
+import { Shield, LogOut, Users, Stethoscope, Mail, Award, Briefcase, User as UserIcon, Search, Filter, Eye, Edit, Trash2, UserX, UserCheck2, ClipboardList, Activity, CheckCircle, XCircle } from 'lucide-react';
 import AdminDoctorModal from '../components/AdminDoctorModal';
 import AdminAppointments from '../components/AdminAppointments';
 
@@ -18,10 +18,21 @@ const AdminDashboard = () => {
   const [selectedSpecialization, setSelectedSpecialization] = useState('all');
   const [selectedDoctor, setSelectedDoctor] = useState(null);
   const [editingDoctor, setEditingDoctor] = useState(null);
+  const [mlHealth, setMlHealth] = useState({ face: false, voice: false, keystroke: false, mouse: false });
 
   useEffect(() => {
     fetchData();
+    checkMLHealth();
   }, []);
+
+  const checkMLHealth = async () => {
+    try {
+      const response = await axios.get('/api/verification/health');
+      setMlHealth(response.data.data);
+    } catch (error) {
+      console.error('Failed to check ML health:', error);
+    }
+  };
 
   const fetchData = async () => {
     try {
@@ -111,6 +122,48 @@ const AdminDashboard = () => {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* ML Services Status */}
+        <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+            <Activity className="h-5 w-5 mr-2 text-primary-600" />
+            ML Services Status
+          </h2>
+          <div className="grid grid-cols-4 gap-4">
+            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+              <span className="text-sm font-medium text-gray-700">Face Recognition</span>
+              {mlHealth.face ? (
+                <CheckCircle className="h-5 w-5 text-green-600" />
+              ) : (
+                <XCircle className="h-5 w-5 text-red-600" />
+              )}
+            </div>
+            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+              <span className="text-sm font-medium text-gray-700">Voice Recognition</span>
+              {mlHealth.voice ? (
+                <CheckCircle className="h-5 w-5 text-green-600" />
+              ) : (
+                <XCircle className="h-5 w-5 text-red-600" />
+              )}
+            </div>
+            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+              <span className="text-sm font-medium text-gray-700">Keystroke Dynamics</span>
+              {mlHealth.keystroke ? (
+                <CheckCircle className="h-5 w-5 text-green-600" />
+              ) : (
+                <XCircle className="h-5 w-5 text-red-600" />
+              )}
+            </div>
+            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+              <span className="text-sm font-medium text-gray-700">Mouse Movement</span>
+              {mlHealth.mouse ? (
+                <CheckCircle className="h-5 w-5 text-green-600" />
+              ) : (
+                <XCircle className="h-5 w-5 text-red-600" />
+              )}
+            </div>
+          </div>
+        </div>
+
         {/* Stats Cards */}
         {!loading && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">

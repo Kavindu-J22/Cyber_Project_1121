@@ -3,10 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
 import toast from 'react-hot-toast';
-import { User, Calendar, LogOut, Stethoscope, Mail, Award, Briefcase, Eye, Search, Filter, ClipboardList } from 'lucide-react';
+import { User, Calendar, LogOut, Stethoscope, Mail, Award, Briefcase, Eye, Search, Filter, ClipboardList, Video } from 'lucide-react';
 import DoctorDetailsModal from '../components/DoctorDetailsModal';
 import BookAppointmentModal from '../components/BookAppointmentModal';
 import MyAppointments from '../components/MyAppointments';
+import ConfirmedConsultations from '../components/ConfirmedConsultations';
 
 const PatientDashboard = () => {
   const navigate = useNavigate();
@@ -16,7 +17,7 @@ const PatientDashboard = () => {
   const [selectedDoctor, setSelectedDoctor] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSpecialization, setSelectedSpecialization] = useState('all');
-  const [activeTab, setActiveTab] = useState('doctors'); // 'doctors' or 'appointments'
+  const [activeTab, setActiveTab] = useState('doctors'); // 'doctors', 'appointments', or 'consultations'
   const [bookingDoctor, setBookingDoctor] = useState(null);
 
   useEffect(() => {
@@ -131,6 +132,17 @@ const PatientDashboard = () => {
               <ClipboardList className="h-5 w-5 mr-2" />
               My Appointments
             </button>
+            <button
+              onClick={() => setActiveTab('consultations')}
+              className={`flex items-center px-4 py-3 font-medium text-sm border-b-2 transition-colors ${
+                activeTab === 'consultations'
+                  ? 'border-primary-600 text-primary-600'
+                  : 'border-transparent text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <Video className="h-5 w-5 mr-2" />
+              Confirmed Live Consultations
+            </button>
           </div>
         </div>
 
@@ -237,9 +249,15 @@ const PatientDashboard = () => {
             </div>
           )}
         </div>
-        ) : (
+        ) : activeTab === 'appointments' ? (
           /* My Appointments */
           <MyAppointments />
+        ) : (
+          /* Confirmed Live Consultations */
+          <div className="bg-white rounded-lg shadow p-6">
+            <h2 className="text-xl font-semibold text-gray-900 mb-6">Confirmed Live Consultations</h2>
+            <ConfirmedConsultations />
+          </div>
         )}
       </main>
 

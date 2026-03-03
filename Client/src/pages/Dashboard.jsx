@@ -3,14 +3,15 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
 import toast from 'react-hot-toast';
-import { Shield, Video, LogOut, Activity, CheckCircle, XCircle, User, ClipboardList } from 'lucide-react';
+import { Shield, Video, LogOut, Activity, CheckCircle, XCircle, User, ClipboardList, Calendar } from 'lucide-react';
 import DoctorAppointments from '../components/DoctorAppointments';
+import ScheduledConsultations from '../components/ScheduledConsultations';
 
 const Dashboard = () => {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   const [mlHealth, setMlHealth] = useState({ face: false, voice: false, keystroke: false, mouse: false });
-  const [activeTab, setActiveTab] = useState('dashboard'); // 'dashboard' or 'appointments'
+  const [activeTab, setActiveTab] = useState('consultations'); // 'consultations' or 'appointments'
 
   useEffect(() => {
     checkMLHealth();
@@ -86,79 +87,6 @@ const Dashboard = () => {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Tabs */}
-        <div className="mb-6 border-b border-gray-200">
-          <div className="flex gap-4">
-            <button
-              onClick={() => setActiveTab('dashboard')}
-              className={`flex items-center px-4 py-3 font-medium text-sm border-b-2 transition-colors ${
-                activeTab === 'dashboard'
-                  ? 'border-primary-600 text-primary-600'
-                  : 'border-transparent text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              <Shield className="h-5 w-5 mr-2" />
-              Dashboard
-            </button>
-            <button
-              onClick={() => setActiveTab('appointments')}
-              className={`flex items-center px-4 py-3 font-medium text-sm border-b-2 transition-colors ${
-                activeTab === 'appointments'
-                  ? 'border-primary-600 text-primary-600'
-                  : 'border-transparent text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              <ClipboardList className="h-5 w-5 mr-2" />
-              Appointments
-            </button>
-          </div>
-        </div>
-
-        {/* Tab Content */}
-        {activeTab === 'dashboard' ? (
-          <>
-            {/* ML Services Status */}
-            <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-            <Activity className="h-5 w-5 mr-2 text-primary-600" />
-            ML Services Status
-          </h2>
-          <div className="grid grid-cols-4 gap-4">
-            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-              <span className="text-sm font-medium text-gray-700">Face Recognition</span>
-              {mlHealth.face ? (
-                <CheckCircle className="h-5 w-5 text-green-600" />
-              ) : (
-                <XCircle className="h-5 w-5 text-red-600" />
-              )}
-            </div>
-            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-              <span className="text-sm font-medium text-gray-700">Voice Recognition</span>
-              {mlHealth.voice ? (
-                <CheckCircle className="h-5 w-5 text-green-600" />
-              ) : (
-                <XCircle className="h-5 w-5 text-red-600" />
-              )}
-            </div>
-            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-              <span className="text-sm font-medium text-gray-700">Keystroke Dynamics</span>
-              {mlHealth.keystroke ? (
-                <CheckCircle className="h-5 w-5 text-green-600" />
-              ) : (
-                <XCircle className="h-5 w-5 text-red-600" />
-              )}
-            </div>
-            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-              <span className="text-sm font-medium text-gray-700">Mouse Movement</span>
-              {mlHealth.mouse ? (
-                <CheckCircle className="h-5 w-5 text-green-600" />
-              ) : (
-                <XCircle className="h-5 w-5 text-red-600" />
-              )}
-            </div>
-          </div>
-        </div>
-
         {/* Biometric Enrollment Status */}
         <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Your Biometric Profile</h2>
@@ -190,19 +118,41 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* Start Consultation */}
-        <div className="bg-gradient-to-r from-primary-600 to-indigo-600 rounded-lg shadow-lg p-8 mb-6 text-white">
-          <h2 className="text-2xl font-bold mb-2">Start Live Consultation</h2>
-          <p className="mb-6 opacity-90">Begin a secure video consultation with continuous biometric verification</p>
-          <button
-            onClick={handleStartConsultation}
-            className="flex items-center px-6 py-3 bg-white text-primary-600 rounded-lg font-semibold hover:bg-gray-100 transition-colors"
-          >
-            <Video className="h-5 w-5 mr-2" />
-            Start Consultation
-          </button>
+        {/* Tabs */}
+        <div className="mb-6 border-b border-gray-200">
+          <div className="flex gap-4">
+            <button
+              onClick={() => setActiveTab('consultations')}
+              className={`flex items-center px-4 py-3 font-medium text-sm border-b-2 transition-colors ${
+                activeTab === 'consultations'
+                  ? 'border-primary-600 text-primary-600'
+                  : 'border-transparent text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <Video className="h-5 w-5 mr-2" />
+              Scheduled Consultations
+            </button>
+            <button
+              onClick={() => setActiveTab('appointments')}
+              className={`flex items-center px-4 py-3 font-medium text-sm border-b-2 transition-colors ${
+                activeTab === 'appointments'
+                  ? 'border-primary-600 text-primary-600'
+                  : 'border-transparent text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <ClipboardList className="h-5 w-5 mr-2" />
+              Appointments
+            </button>
+          </div>
         </div>
-          </>
+
+        {/* Tab Content */}
+        {activeTab === 'consultations' ? (
+          /* Scheduled Consultations */
+          <div className="bg-white rounded-lg shadow p-6">
+            <h2 className="text-xl font-semibold text-gray-900 mb-6">Scheduled Consultations</h2>
+            <ScheduledConsultations />
+          </div>
         ) : (
           /* Appointments Tab */
           <DoctorAppointments />
