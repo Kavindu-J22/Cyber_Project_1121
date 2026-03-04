@@ -294,9 +294,20 @@ async def verify_user(request: VerificationRequest):
     features = events_to_features(request.events)
 
     if features is None:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Insufficient events. Need at least {config.features.min_events}"
+        # Not enough events yet — return a neutral (50 %) score instead of 400.
+        # The frontend keeps accumulating events across intervals; this allows it
+        # to receive a valid response while the buffer is still building up.
+        logger.info(
+            f"Insufficient events ({len(request.events)} < {config.features.min_events}) "
+            f"for user {request.user_id} — returning neutral confidence"
+        )
+        return VerificationResponse(
+            user_id=request.user_id,
+            verified=False,
+            confidence=0.5,
+            confidence_level="medium",
+            threshold=config.verification.threshold,
+            timestamp=time.time()
         )
 
     # Normalize features (auto-fit scaler on first call if not yet fitted)

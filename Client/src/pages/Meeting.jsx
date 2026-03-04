@@ -41,7 +41,7 @@ const Meeting = () => {
   // Per-modality confidence scores (0-1, null = no data yet)
   const [faceConf, setFaceConf] = useState(null);
   const [voiceConf, setVoiceConf] = useState(null);
-  const [keystrokeConf, setKeystrokeConf] = useState(null);
+  const [keystrokeConf, setKeystrokeConf] = useState(0.5); // 50 % default when chat is closed
   const [mouseConf, setMouseConf] = useState(null);
 
   // Doctor's biometric scores as seen by the patient
@@ -251,21 +251,30 @@ const Meeting = () => {
         verificationInterval.current = setInterval(async () => {
           const token = localStorage.getItem('token');
 
-          // Keystroke — always attempt every 10 s; ML service returns 0.0 when not enrolled
-          const kf = keystrokeCapture.current.getFeatures();
-          try {
-            const r = await axios.post('/api/verification/keystroke',
-              { keystrokeSample: kf },
-              { headers: { Authorization: `Bearer ${token}` } }
-            );
-            if (mounted) setKeystrokeConf(r.data.data?.confidence ?? null);
-          } catch (e) { console.error('Keystroke verification error:', e); }
-          keystrokeCapture.current.start(); // reset buffer for next window
+          // Keystroke — ONLY verify when chat is open and the doctor has typed something.
+          // When chat is closed the score stays at the 50 % neutral default.
+          if (showChatRef.current) {
+            const typedEvents = keystrokeCapture.current.events;
+            if (typedEvents && typedEvents.length >= 5) {
+              const kf = keystrokeCapture.current.getFeatures();
+              try {
+                const r = await axios.post('/api/verification/keystroke',
+                  { keystrokeSample: kf },
+                  { headers: { Authorization: `Bearer ${token}` } }
+                );
+                if (mounted) setKeystrokeConf(r.data.data?.confidence ?? 0.5);
+              } catch (e) { console.error('Keystroke verification error:', e); }
+            }
+            keystrokeCapture.current.start(); // reset buffer for next chat window
+          } else {
+            // Chat closed — keep score at 50 % (already set when chat closed)
+            keystrokeCapture.current.start(); // ensure buffer is clear
+          }
 
-          // Mouse — only reset events buffer after a SUCCESSFUL verification so events
-          // accumulate across intervals until the ML service has enough data (avoids 400 errors)
+          // Mouse — accumulate events until we have enough (≥ 50 per backend min_events).
+          // The backend now returns 0.5 for insufficient events, so we always get a valid response.
           const me = mouseCapture.current.getEvents();
-          if (me.length > 10) {
+          if (me.length >= 50) {
             try {
               const r = await axios.post('/api/verification/mouse',
                 { mouseEvents: me },
@@ -348,7 +357,15 @@ const Meeting = () => {
   // Keep showChatRef in sync so the socket callback can read it without stale closure
   useEffect(() => {
     showChatRef.current = showChat;
-    if (showChat) setUnreadCount(0);
+    if (showChat) {
+      setUnreadCount(0);
+      // Start a fresh keystroke buffer each time chat opens
+      keystrokeCapture.current.start();
+    } else {
+      // Chat closed — reset keystroke score to neutral 50 % and clear the buffer
+      setKeystrokeConf(0.5);
+      keystrokeCapture.current.start();
+    }
   }, [showChat]);
 
   // Auto-scroll chat to bottom on new message
@@ -460,8 +477,6 @@ const Meeting = () => {
       className="min-h-screen bg-gray-900 flex flex-col"
       onMouseMove={(e) => mouseCapture.current.handleMouseMove(e)}
       onClick={(e) => mouseCapture.current.handleMouseClick(e)}
-      onKeyDown={(e) => keystrokeCapture.current.handleKeyDown(e)}
-      onKeyUp={(e) => keystrokeCapture.current.handleKeyUp(e)}
       tabIndex={0}
     >
       {/* Header */}
@@ -601,10 +616,9 @@ const Meeting = () => {
                     value={newMessage}
                     onChange={(e) => setNewMessage(e.target.value)}
                     onKeyDown={(e) => {
-                      // Forward to keystroke capture BEFORE handling chat logic
+                      // Capture keystroke timing for biometric verification (chat-only scope)
                       if (isDoctor) keystrokeCapture.current.handleKeyDown(e);
                       if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChatMessage(); }
-                      // Note: NO e.stopPropagation() — allow event to reach the parent div capture
                     }}
                     onKeyUp={(e) => {
                       if (isDoctor) keystrokeCapture.current.handleKeyUp(e);
@@ -694,28 +708,26 @@ const Meeting = () => {
               </div>
 
               {/* ── Keystroke Dynamics ── */}
+              {/* Score is 50 % default when chat is closed; live when chat is open & typing */}
               <div className="bg-gray-700 rounded-lg p-3">
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
                     <Activity className="h-4 w-4 text-yellow-400" />
                     <span className="text-sm text-gray-300">Keystroke Dynamics</span>
                   </div>
-                  {keystrokeConf !== null
-                    ? (keystrokeConf >= 0.5 ? <CheckCircle className="h-4 w-4 text-green-400" /> : <AlertTriangle className="h-4 w-4 text-red-400" />)
-                    : <span className="text-xs text-gray-500">⌨️</span>
+                  {keystrokeConf >= 0.5
+                    ? <CheckCircle className="h-4 w-4 text-green-400" />
+                    : <AlertTriangle className="h-4 w-4 text-red-400" />
                   }
                 </div>
-                {keystrokeConf === null ? (
-                  <p className="text-xs text-gray-500 italic">Type anything to begin…</p>
-                ) : (
-                  <>
-                    <div className="w-full bg-gray-600 rounded-full h-2">
-                      <div className={`h-2 rounded-full transition-all duration-700 ${keystrokeConf >= 0.8 ? 'bg-green-500' : keystrokeConf >= 0.5 ? 'bg-yellow-500' : 'bg-red-500'}`}
-                        style={{ width: `${Math.round(keystrokeConf * 100)}%` }} />
-                    </div>
-                    <p className="text-xs text-gray-400 mt-1 text-right">{Math.round(keystrokeConf * 100)}% confidence</p>
-                  </>
-                )}
+                <div className="w-full bg-gray-600 rounded-full h-2">
+                  <div className={`h-2 rounded-full transition-all duration-700 ${keystrokeConf >= 0.8 ? 'bg-green-500' : keystrokeConf >= 0.5 ? 'bg-yellow-500' : 'bg-red-500'}`}
+                    style={{ width: `${Math.round(keystrokeConf * 100)}%` }} />
+                </div>
+                <p className="text-xs text-gray-400 mt-1 text-right">
+                  {Math.round(keystrokeConf * 100)}% confidence
+                  {keystrokeConf === 0.5 && <span className="text-gray-500"> — open chat to verify</span>}
+                </p>
               </div>
 
               {/* ── Mouse Movement ── */}

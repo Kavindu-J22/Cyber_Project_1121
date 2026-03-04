@@ -325,16 +325,28 @@ class FaceVerificationEngine:
         mean_similarity = float(np.mean(similarities))
 
         # ── Calibrated confidence scoring ────────────────────────────────────
-        # Use enrollment intra-class statistics to calibrate the confidence:
-        #   z = (similarity - enrolled_mean) / enrolled_std
-        #   confidence = sigmoid(z * 3 + 1.5)
-        # This maps:  z=0 (at enrolled mean) → ~82%, z=1 → ~99%, z=-1 → ~18%,
-        # z=-2 → ~1%  — so any impostor/covered-camera that falls below the
-        # enrolled distribution drops to near-zero confidence.
-        intra_mean = enrollment_data.get('intra_sim_mean', 0.92)
-        intra_std  = enrollment_data.get('intra_sim_std',  0.02)
-        z = (max_similarity - intra_mean) / intra_std
-        calibrated_confidence = float(1.0 / (1.0 + np.exp(-(z * 3.0 + 1.5))))
+        # Anchor confidence to the match threshold (not the enrollment mean).
+        #
+        #   center = threshold - 0.03   (slightly below threshold)
+        #   scale  = 0.05               (spread: 5% similarity == 1 z-unit)
+        #   z      = (similarity - center) / scale
+        #   confidence = sigmoid(z)
+        #
+        # Concrete examples (threshold = 0.8096 → center ≈ 0.78):
+        #   sim = 0.95 → z ≈ +3.4 → 97 %   (clear match)
+        #   sim = 0.90 → z ≈ +2.4 → 92 %
+        #   sim = 0.85 → z ≈ +1.4 → 80 %
+        #   sim = 0.80 → z ≈ +0.4 → 60 %   (at threshold)
+        #   sim = 0.75 → z ≈ −0.6 → 35 %
+        #   sim = 0.70 → z ≈ −1.6 → 17 %   (impostor / covered camera)
+        #
+        # This approach is robust to enrollment-vs-live distribution shift because
+        # it is anchored to the model's decision boundary, not the enrollment set.
+        center = threshold - 0.03
+        scale  = 0.05
+        z_max  = (max_similarity  - center) / scale
+        z_mean = (mean_similarity - center) / scale
+        calibrated_confidence = float(1.0 / (1.0 + np.exp(-z_max)))
         calibrated_confidence = float(np.clip(calibrated_confidence, 0.0, 1.0))
 
         verified = calibrated_confidence >= 0.5
@@ -344,15 +356,13 @@ class FaceVerificationEngine:
         logger.info(
             f"Verification for {user_id}: "
             f"{'✓ MATCH' if verified else '✗ MISMATCH'} "
-            f"(raw_sim={max_similarity:.4f}, z={z:.2f}, confidence={calibrated_confidence:.4f})"
+            f"(raw_sim={max_similarity:.4f}, z={z_max:.2f}, confidence={calibrated_confidence:.4f})"
         )
 
         return {
             'verified': verified,
             'confidence_score': calibrated_confidence,
-            'mean_confidence': float(np.clip(
-                1.0 / (1.0 + np.exp(-((mean_similarity - intra_mean) / intra_std * 3.0 + 1.5))), 0.0, 1.0
-            )),
+            'mean_confidence': float(np.clip(1.0 / (1.0 + np.exp(-z_mean)), 0.0, 1.0)),
             'raw_similarity': max_similarity,
             'threshold': threshold,
             'decision': 'MATCH' if verified else 'MISMATCH',

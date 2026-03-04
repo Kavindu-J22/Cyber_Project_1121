@@ -149,20 +149,28 @@ class MouseVerifier:
         )
 
         # ── Calibrated confidence scoring ────────────────────────────────────
-        # Use enrollment intra-class statistics to calibrate the confidence:
-        #   z = (similarity - enrolled_mean) / enrolled_std
-        #   confidence = sigmoid(z * 3 + 1.5)
-        # This maps:  z=0 (at enrolled mean) → ~82%, z=1 → ~99%, z=-1 → ~18%
-        # so any impostor that falls below the enrolled distribution drops to
-        # near-zero confidence instead of always showing ~100%.
-        intra_mean = self.user_templates[user_id].get('intra_sim_mean', 0.90)
-        intra_std  = self.user_templates[user_id].get('intra_sim_std',  0.03)
-        z = (float(similarity.item()) - intra_mean) / intra_std
-        calibrated_confidence = 1.0 / (1.0 + math.exp(-(z * 3.0 + 1.5)))
+        # Anchor confidence to the match threshold (not the enrollment mean).
+        #
+        #   center = threshold - 0.03   (slightly below threshold)
+        #   scale  = 0.05               (spread: 5% similarity == 1 z-unit)
+        #   z      = (similarity - center) / scale
+        #   confidence = sigmoid(z)
+        #
+        # Concrete examples (threshold = 0.85 → center = 0.82):
+        #   sim = 0.97 → z ≈ +3.0 → 95 %   (clear match)
+        #   sim = 0.90 → z ≈ +1.6 → 83 %
+        #   sim = 0.85 → z ≈ +0.6 → 65 %   (at threshold)
+        #   sim = 0.80 → z ≈ −0.4 → 40 %
+        #   sim = 0.70 → z ≈ −2.4 →  8 %   (different user)
+        threshold = self.config.verification.threshold
+        center = threshold - 0.03
+        scale  = 0.05
+        z = (float(similarity.item()) - center) / scale
+        calibrated_confidence = 1.0 / (1.0 + math.exp(-z))
         calibrated_confidence = max(0.0, min(1.0, calibrated_confidence))
 
         confidence = calibrated_confidence
-        verified = confidence >= self.config.verification.threshold
+        verified = confidence >= threshold
         
         # Determine confidence level
         if confidence >= self.config.verification.confidence_levels.high:
