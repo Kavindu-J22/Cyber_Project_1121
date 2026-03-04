@@ -7,7 +7,7 @@ import toast from 'react-hot-toast';
 import {
   Video, VideoOff, Mic, MicOff, PhoneOff, Shield,
   Activity, AlertTriangle, CheckCircle, TrendingUp,
-  MessageSquare, Send, Users, X
+  MessageSquare, Send, Users, X, Lock, ArrowRight, Loader2, Mail
 } from 'lucide-react';
 import { KeystrokeCapture, MouseCapture, FaceCapture, VoiceCapture } from '../utils/biometricCapture';
 
@@ -56,6 +56,15 @@ const Meeting = () => {
   // Session state
   const [consultationEnded, setConsultationEnded] = useState(false);
 
+  // Lockout state (15-min continuous low-trust)
+  const [isLockedOut, setIsLockedOut] = useState(false);
+  const [lockoutStep, setLockoutStep] = useState('otp'); // 'otp' | 'slide'
+  const [lockoutOtp, setLockoutOtp] = useState(['', '', '', '', '', '']);
+  const [lockoutOtpLoading, setLockoutOtpLoading] = useState(false);
+  const [lockoutSliderPos, setLockoutSliderPos] = useState(0);
+  const [lockoutIsSliding, setLockoutIsSliding] = useState(false);
+  const [doctorIsLockedOut, setDoctorIsLockedOut] = useState(false); // patient view
+
   // Refs
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
@@ -75,6 +84,11 @@ const Meeting = () => {
   // Refs to track media state inside async interval callbacks (avoid stale closures)
   const isVideoOnRef = useRef(true);
   const isAudioOnRef = useRef(true);
+  // Lockout refs
+  const lowTrustStartRef = useRef(null);
+  const isLockedOutRef = useRef(false);
+  const lockoutOtpRefs = useRef([]);
+  const lockoutSliderRef = useRef(null);
 
   useEffect(() => {
     let mounted = true;
@@ -242,6 +256,12 @@ const Meeting = () => {
         setDoctorScores(scores);
       });
 
+      // Doctor lockout status (received by the patient)
+      sock.on('doctor-lockout-status', ({ isLocked }) => {
+        if (!mounted) return;
+        setDoctorIsLockedOut(isLocked);
+      });
+
       // ── Biometric Monitoring (doctor only) ─────────────────────
       if (isDoctor) {
         keystrokeCapture.current.start();
@@ -262,18 +282,22 @@ const Meeting = () => {
                   { keystrokeSample: kf },
                   { headers: { Authorization: `Bearer ${token}` } }
                 );
-                if (mounted) setKeystrokeConf(r.data.data?.confidence ?? 0.5);
+                if (mounted) {
+                  setKeystrokeConf(r.data.data?.confidence ?? 0.5);
+                  keystrokeCapture.current.start(); // reset buffer ONLY after a successful API call
+                }
               } catch (e) { console.error('Keystroke verification error:', e); }
+              // On failure: keep accumulating — do NOT reset buffer
             }
-            keystrokeCapture.current.start(); // reset buffer for next chat window
+            // < 5 events: keep accumulating across intervals; do NOT reset
           } else {
             // Chat closed — keep score at 50 % (already set when chat closed)
             keystrokeCapture.current.start(); // ensure buffer is clear
           }
 
-          // Mouse — accumulate events until we have enough (≥ 50 per backend min_events).
+          // Mouse — accumulate events until we have enough (≥ 20 events).
           const me = mouseCapture.current.getEvents();
-          if (me.length >= 50) {
+          if (me.length >= 20) {
             try {
               const r = await axios.post('/api/verification/mouse',
                 { mouseEvents: me },
@@ -383,14 +407,40 @@ const Meeting = () => {
   }, [messages]);
 
   // Compute overall trust score from live per-modality confidences (doctor only)
+  // Also runs the 15-minute low-trust lockout timer.
   useEffect(() => {
     if (!isDoctor) return;
     const values = [faceConf, voiceConf, keystrokeConf, mouseConf].filter(v => v !== null);
     if (values.length > 0) {
       const avg = values.reduce((a, b) => a + b, 0) / values.length;
-      setTrustScore(Math.round(avg * 100));
+      const score = Math.round(avg * 100);
+      setTrustScore(score);
+
+      // 15-minute low-trust lockout logic
+      if (!isLockedOutRef.current) {
+        if (score < 50) {
+          if (!lowTrustStartRef.current) {
+            lowTrustStartRef.current = Date.now();
+          } else if (Date.now() - lowTrustStartRef.current >= 15 * 60 * 1000) {
+            // Trust has been below 50% for 15 continuous minutes → trigger lockout
+            isLockedOutRef.current = true;
+            setIsLockedOut(true);
+            // Disable mic and camera
+            const vt = localStreamRef.current?.getVideoTracks()[0];
+            const at = localStreamRef.current?.getAudioTracks()[0];
+            if (vt) { vt.enabled = false; setIsVideoOn(false); isVideoOnRef.current = false; setFaceConf(null); }
+            if (at) { at.enabled = false; setIsAudioOn(false); isAudioOnRef.current = false; setVoiceConf(null); }
+            // Notify patient
+            socketRef.current?.emit('doctor-lockout-status', { sessionId, isLocked: true });
+            toast.error('⚠️ Security alert: Trust score below 50% for 15 minutes. Verification required.', { duration: 8000 });
+          }
+        } else {
+          // Trust recovered — reset timer
+          lowTrustStartRef.current = null;
+        }
+      }
     }
-  }, [faceConf, voiceConf, keystrokeConf, mouseConf, isDoctor]);
+  }, [faceConf, voiceConf, keystrokeConf, mouseConf, isDoctor, sessionId]);
 
   // Emit doctor's biometric scores to the patient via socket
   useEffect(() => {
@@ -422,6 +472,127 @@ const Meeting = () => {
       if (!t.enabled) setVoiceConf(null);
     }
   };
+
+  // ── Lockout: auto-send OTP when lockout triggers (doctor only) ──────────────
+  useEffect(() => {
+    if (!isDoctor || !isLockedOut) return;
+    const token = localStorage.getItem('token');
+    setLockoutStep('otp');
+    setLockoutOtp(['', '', '', '', '', '']);
+    setLockoutSliderPos(0);
+    axios.post('/api/otp/consultation/send', {}, {
+      headers: { Authorization: `Bearer ${token}` }
+    }).catch(err => console.error('Failed to send lockout OTP:', err));
+  }, [isLockedOut, isDoctor]);
+
+  // ── Lockout: OTP digit change ─────────────────────────────────────────────
+  const handleLockoutOtpChange = (index, value) => {
+    const v = value.replace(/[^0-9]/g, '').slice(-1);
+    const next = [...lockoutOtp];
+    next[index] = v;
+    setLockoutOtp(next);
+    if (v && index < 5) {
+      lockoutOtpRefs.current[index + 1]?.focus();
+    }
+  };
+
+  const handleLockoutOtpKeyDown = (index, e) => {
+    if (e.key === 'Backspace' && !lockoutOtp[index] && index > 0) {
+      lockoutOtpRefs.current[index - 1]?.focus();
+    }
+  };
+
+  // ── Lockout: verify OTP ───────────────────────────────────────────────────
+  const handleLockoutOtpSubmit = async () => {
+    const code = lockoutOtp.join('');
+    if (code.length < 6) return;
+    setLockoutOtpLoading(true);
+    try {
+      const token = localStorage.getItem('token');
+      await axios.post('/api/otp/consultation/verify', { otp: code }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setLockoutStep('slide');
+    } catch (err) {
+      toast.error('Invalid OTP. Please try again.');
+      setLockoutOtp(['', '', '', '', '', '']);
+      lockoutOtpRefs.current[0]?.focus();
+    } finally {
+      setLockoutOtpLoading(false);
+    }
+  };
+
+  // ── Lockout: resend OTP ───────────────────────────────────────────────────
+  const resendLockoutOtp = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      await axios.post('/api/otp/consultation/resend', {}, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      toast.success('OTP resent to your registered email.');
+    } catch (err) {
+      toast.error('Could not resend OTP. Try again.');
+    }
+  };
+
+  // ── Lockout: resolve — restore mic + camera ───────────────────────────────
+  const resolveLockout = () => {
+    const vt = localStreamRef.current?.getVideoTracks()[0];
+    const at = localStreamRef.current?.getAudioTracks()[0];
+    if (vt) { vt.enabled = true; setIsVideoOn(true); isVideoOnRef.current = true; }
+    if (at) { at.enabled = true; setIsAudioOn(true); isAudioOnRef.current = true; }
+    isLockedOutRef.current = false;
+    lowTrustStartRef.current = null;
+    setIsLockedOut(false);
+    setLockoutStep('otp');
+    setLockoutOtp(['', '', '', '', '', '']);
+    setLockoutSliderPos(0);
+    socketRef.current?.emit('doctor-lockout-status', { sessionId, isLocked: false });
+    toast.success('✅ Identity verified. Mic and camera restored.');
+  };
+
+  // ── Lockout: slider drag logic ────────────────────────────────────────────
+  const handleSliderMouseDown = (e) => {
+    e.preventDefault();
+    setLockoutIsSliding(true);
+  };
+  const handleSliderTouchStart = () => setLockoutIsSliding(true);
+
+  useEffect(() => {
+    if (!lockoutIsSliding) return;
+    const track = lockoutSliderRef.current;
+
+    const onMove = (clientX) => {
+      if (!track) return;
+      const rect = track.getBoundingClientRect();
+      const pct = Math.min(100, Math.max(0, ((clientX - rect.left) / rect.width) * 100));
+      setLockoutSliderPos(pct);
+      if (pct >= 85) {
+        setLockoutIsSliding(false);
+        setLockoutSliderPos(100);
+        setTimeout(resolveLockout, 300);
+      }
+    };
+
+    const onMouseMove = (e) => onMove(e.clientX);
+    const onTouchMove = (e) => onMove(e.touches[0].clientX);
+    const onEnd = () => {
+      setLockoutIsSliding(false);
+      setLockoutSliderPos(p => (p < 85 ? 0 : p)); // snap back if not far enough
+    };
+
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onEnd);
+    window.addEventListener('touchmove', onTouchMove);
+    window.addEventListener('touchend', onEnd);
+    return () => {
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onEnd);
+      window.removeEventListener('touchmove', onTouchMove);
+      window.removeEventListener('touchend', onEnd);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lockoutIsSliding]);
 
   const endCall = async () => {
     if (!isDoctor) { toast.error('Only the doctor can end the consultation'); return; }
@@ -482,6 +653,7 @@ const Meeting = () => {
   }
 
   return (
+    <>
     <div
       className="min-h-screen bg-gray-900 flex flex-col"
       onMouseMove={(e) => mouseCapture.current.handleMouseMove(e)}
@@ -548,6 +720,22 @@ const Meeting = () => {
             {hasRemoteStream && (
               <div className="absolute top-4 left-4 bg-black/50 text-white text-sm px-3 py-1 rounded-lg">
                 {isDoctor ? '🧑 Patient' : '👨‍⚕️ Doctor'}
+              </div>
+            )}
+            {/* Patient: waiting overlay when doctor is locked out */}
+            {!isDoctor && doctorIsLockedOut && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 backdrop-blur-sm z-20">
+                <div className="bg-gray-800 border border-yellow-600 rounded-2xl p-8 max-w-sm text-center shadow-2xl">
+                  <Lock className="h-12 w-12 text-yellow-400 mx-auto mb-4 animate-pulse" />
+                  <h3 className="text-white text-xl font-bold mb-2">Security Verification</h3>
+                  <p className="text-gray-300 text-sm mb-4">
+                    Your doctor is currently undergoing identity verification. This is a routine Zero Trust security check.
+                  </p>
+                  <div className="flex items-center justify-center gap-2 text-yellow-400 text-sm">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span>Waiting for doctor to complete verification…</span>
+                  </div>
+                </div>
               </div>
             )}
           </div>
@@ -922,6 +1110,104 @@ const Meeting = () => {
         </div>
       </div>
     </div>
+
+    {/* ── Doctor Lockout Overlay ─────────────────────────────────────────────── */}
+    {isDoctor && isLockedOut && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-sm">
+        <div className="bg-gray-900 border border-red-700 rounded-2xl p-8 max-w-md w-full mx-4 shadow-2xl text-center">
+
+          {/* Header */}
+          <div className="flex items-center justify-center gap-3 mb-2">
+            <Lock className="h-8 w-8 text-red-400" />
+            <h2 className="text-2xl font-bold text-white">Security Lock</h2>
+          </div>
+          <p className="text-gray-400 text-sm mb-6">
+            Your overall trust score has been below 50% for 15 minutes. Mic and camera are disabled until you verify your identity.
+          </p>
+
+          {/* Step: OTP */}
+          {lockoutStep === 'otp' && (
+            <>
+              <div className="flex items-center gap-2 justify-center mb-4 text-yellow-400">
+                <Mail className="h-5 w-5" />
+                <span className="text-sm font-medium">Enter the 6-digit OTP sent to your email</span>
+              </div>
+              <div className="flex justify-center gap-2 mb-5">
+                {lockoutOtp.map((digit, i) => (
+                  <input
+                    key={i}
+                    ref={el => lockoutOtpRefs.current[i] = el}
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={1}
+                    value={digit}
+                    onChange={e => handleLockoutOtpChange(i, e.target.value)}
+                    onKeyDown={e => handleLockoutOtpKeyDown(i, e)}
+                    className="w-12 h-14 text-center text-2xl font-bold bg-gray-800 border-2 border-gray-600 focus:border-primary-500 rounded-lg text-white outline-none transition-colors"
+                  />
+                ))}
+              </div>
+              <button
+                onClick={handleLockoutOtpSubmit}
+                disabled={lockoutOtpLoading || lockoutOtp.join('').length < 6}
+                className="w-full py-3 bg-primary-600 hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold rounded-xl transition-colors flex items-center justify-center gap-2 mb-3"
+              >
+                {lockoutOtpLoading
+                  ? <><Loader2 className="h-5 w-5 animate-spin" /> Verifying…</>
+                  : <><ArrowRight className="h-5 w-5" /> Verify OTP</>
+                }
+              </button>
+              <button
+                onClick={resendLockoutOtp}
+                className="text-sm text-gray-400 hover:text-white underline transition-colors"
+              >
+                Resend OTP
+              </button>
+            </>
+          )}
+
+          {/* Step: Slide to Restore */}
+          {lockoutStep === 'slide' && (
+            <>
+              <div className="flex items-center gap-2 justify-center mb-2 text-green-400">
+                <CheckCircle className="h-5 w-5" />
+                <span className="text-sm font-medium">OTP verified! Slide to restore your mic &amp; camera.</span>
+              </div>
+              <p className="text-xs text-gray-500 mb-6">This confirms you are physically present and in control.</p>
+
+              {/* Slider track */}
+              <div
+                ref={lockoutSliderRef}
+                className="relative w-full h-16 bg-gray-800 border-2 border-green-700 rounded-full overflow-hidden select-none cursor-pointer mb-4"
+              >
+                {/* Fill */}
+                <div
+                  className="absolute left-0 top-0 h-full bg-green-700/40 rounded-full transition-none"
+                  style={{ width: `${lockoutSliderPos}%` }}
+                />
+                {/* Label */}
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                  <span className="text-white text-sm font-semibold opacity-70">
+                    {lockoutSliderPos >= 85 ? '✅ Restoring…' : '← Slide to restore →'}
+                  </span>
+                </div>
+                {/* Handle */}
+                <div
+                  className="absolute top-1 h-14 w-14 bg-green-500 rounded-full flex items-center justify-center shadow-lg cursor-grab active:cursor-grabbing transition-none"
+                  style={{ left: `calc(${lockoutSliderPos}% - ${lockoutSliderPos > 10 ? 56 : 4}px)` }}
+                  onMouseDown={handleSliderMouseDown}
+                  onTouchStart={handleSliderTouchStart}
+                >
+                  <ArrowRight className="h-6 w-6 text-white" />
+                </div>
+              </div>
+            </>
+          )}
+
+        </div>
+      </div>
+    )}
+    </>
   );
 };
 

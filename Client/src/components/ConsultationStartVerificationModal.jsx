@@ -266,7 +266,7 @@ export default function ConsultationStartVerificationModal({ appointment, doctor
       // FACE
       (async () => {
         try {
-          await new Promise(r => setTimeout(r, 2000)); // let camera warm up
+          await new Promise(r => setTimeout(r, 3500)); // let camera warm up + auto-exposure settle
           if (!videoRef.current) throw new Error('no camera');
           const frame = await faceCap.current.captureFrame(videoRef.current);
           const fd = new FormData();

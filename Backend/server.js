@@ -161,6 +161,11 @@ io.on('connection', (socket) => {
     socket.to(sessionId).emit('doctor-biometric-update', { scores });
   });
 
+  // ── Doctor Lockout Status → relay to patient ──────────────────
+  socket.on('doctor-lockout-status', ({ sessionId, isLocked }) => {
+    socket.to(sessionId).emit('doctor-lockout-status', { isLocked });
+  });
+
   // ── Biometric Verification ────────────────────────────────────
   socket.on('verify-biometric', async (data) => {
     try {
