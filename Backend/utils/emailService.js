@@ -538,6 +538,67 @@ export const sendWaitingAlertEmail = async (doctorEmail, doctorName, patientName
   }
 };
 
+// Send session terminated notification to patient (lockout max attempts)
+export const sendLockoutTerminatedEmail = async (patientEmail, patientName, doctorName) => {
+  const mailOptions = {
+    from: {
+      name: 'MediConsult - Zero Trust Secure Telehealth Platform',
+      address: process.env.EMAIL_USER || 'cn3581743@gmail.com'
+    },
+    to: patientEmail,
+    subject: '🔒 Consultation Ended — Security Verification Failed',
+    html: `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; }
+          .container { background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%); border-radius: 10px; padding: 30px; color: white; }
+          .content { background: white; color: #333; border-radius: 8px; padding: 25px; margin-top: 20px; }
+          .alert-box { background: #fef2f2; border: 2px solid #dc2626; padding: 15px; margin: 15px 0; border-radius: 8px; text-align: center; }
+          .footer { margin-top: 20px; font-size: 12px; opacity: 0.9; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <h2 style="margin-top: 0;">🔒 Consultation Session Ended</h2>
+          <p>Security verification could not be completed</p>
+          <div class="content">
+            <p><strong>Dear ${patientName},</strong></p>
+            <p>Your consultation with <strong>Dr. ${doctorName}</strong> has been <strong>automatically terminated</strong> due to a security incident.</p>
+            <div class="alert-box">
+              <p style="margin: 0; font-size: 16px; font-weight: bold; color: #dc2626;">
+                ⚠️ The Zero Trust verification system detected that the doctor failed identity verification 5 times consecutively.
+              </p>
+            </div>
+            <p>For your safety and security, the session was ended immediately.</p>
+            <p><strong>What to do next:</strong></p>
+            <ul>
+              <li>Contact your doctor directly to reschedule the appointment.</li>
+              <li>If you believe this is an error, please contact our support team.</li>
+            </ul>
+            <p style="color: #dc2626; font-weight: bold;">This action was taken automatically by the MediConsult Zero Trust Security System.</p>
+          </div>
+          <div class="footer">
+            <p>© 2024 MediConsult - Zero Trust Secure Telehealth Platform</p>
+            <p>Secure • Biometric • Trusted</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `
+  };
+
+  try {
+    await transporter.sendMail(mailOptions);
+    console.log(`✅ Lockout termination email sent to ${patientEmail}`);
+    return true;
+  } catch (error) {
+    console.error('❌ Error sending lockout termination email:', error);
+    throw error;
+  }
+};
+
 // Verify transporter configuration
 export const verifyEmailConfig = async () => {
   try {

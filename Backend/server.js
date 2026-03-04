@@ -16,7 +16,10 @@ import appointmentRoutes from './routes/appointmentRoutes.js';
 import consultationRoutes from './routes/consultationRoutes.js';
 import Session from './models/Session.js';
 import mlService from './services/mlService.js';
-import { verifyEmailConfig } from './utils/emailService.js';
+import { verifyEmailConfig, sendLockoutTerminatedEmail } from './utils/emailService.js';
+import Consultation from './models/Consultation.js';
+import Patient from './models/Patient.js';
+import Doctor from './models/Doctor.js';
 
 // Load environment variables
 dotenv.config();
@@ -164,6 +167,30 @@ io.on('connection', (socket) => {
   // ── Doctor Lockout Status → relay to patient ──────────────────
   socket.on('doctor-lockout-status', ({ sessionId, isLocked }) => {
     socket.to(sessionId).emit('doctor-lockout-status', { isLocked });
+  });
+
+  // ── Lockout max OTP attempts → notify patient via email + end session ──
+  socket.on('lockout-max-attempts', async ({ sessionId }) => {
+    try {
+      const consultation = await Consultation.findOne({ consultationRoomId: sessionId })
+        .populate('patientId', 'email fullName')
+        .populate('doctorId', 'firstName lastName');
+
+      if (consultation && consultation.patientId) {
+        const patient = consultation.patientId;
+        const doctor = consultation.doctorId;
+        const doctorName = doctor ? `${doctor.firstName} ${doctor.lastName}` : 'Doctor';
+        await sendLockoutTerminatedEmail(patient.email, patient.fullName, doctorName);
+        console.log(`🔒 Lockout termination email sent for session ${sessionId}`);
+      }
+    } catch (err) {
+      console.error('Failed to send lockout termination email:', err.message);
+    }
+    // End the session for all participants regardless of email success
+    io.to(sessionId).emit('session-ended', {
+      message: 'Consultation ended: doctor failed security verification 5 times.',
+      timestamp: new Date().toISOString()
+    });
   });
 
   // ── Biometric Verification ────────────────────────────────────

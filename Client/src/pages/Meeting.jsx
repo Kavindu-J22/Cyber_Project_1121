@@ -61,6 +61,7 @@ const Meeting = () => {
   const [lockoutStep, setLockoutStep] = useState('otp'); // 'otp' | 'slide'
   const [lockoutOtp, setLockoutOtp] = useState(['', '', '', '', '', '']);
   const [lockoutOtpLoading, setLockoutOtpLoading] = useState(false);
+  const [lockoutOtpAttempts, setLockoutOtpAttempts] = useState(0);
   const [lockoutSliderPos, setLockoutSliderPos] = useState(0);
   const [lockoutIsSliding, setLockoutIsSliding] = useState(false);
   const [doctorIsLockedOut, setDoctorIsLockedOut] = useState(false); // patient view
@@ -480,6 +481,7 @@ const Meeting = () => {
     setLockoutStep('otp');
     setLockoutOtp(['', '', '', '', '', '']);
     setLockoutSliderPos(0);
+    setLockoutOtpAttempts(0);
     axios.post('/api/otp/consultation/send', {}, {
       headers: { Authorization: `Bearer ${token}` }
     }).catch(err => console.error('Failed to send lockout OTP:', err));
@@ -514,9 +516,17 @@ const Meeting = () => {
       });
       setLockoutStep('slide');
     } catch (err) {
-      toast.error('Invalid OTP. Please try again.');
-      setLockoutOtp(['', '', '', '', '', '']);
-      lockoutOtpRefs.current[0]?.focus();
+      const newAttempts = lockoutOtpAttempts + 1;
+      setLockoutOtpAttempts(newAttempts);
+      if (newAttempts >= 5) {
+        toast.error('❌ Maximum OTP attempts reached. Consultation terminated.', { duration: 6000 });
+        socketRef.current?.emit('lockout-max-attempts', { sessionId });
+        endCall();
+      } else {
+        toast.error(`Invalid OTP. ${5 - newAttempts} attempt(s) remaining.`);
+        setLockoutOtp(['', '', '', '', '', '']);
+        lockoutOtpRefs.current[0]?.focus();
+      }
     } finally {
       setLockoutOtpLoading(false);
     }
@@ -1147,6 +1157,11 @@ const Meeting = () => {
                   />
                 ))}
               </div>
+              {lockoutOtpAttempts > 0 && (
+                <p className={`text-sm font-semibold mb-3 ${lockoutOtpAttempts >= 3 ? 'text-red-400' : 'text-yellow-400'}`}>
+                  ⚠️ Attempts: {lockoutOtpAttempts}/5 — {5 - lockoutOtpAttempts} remaining
+                </p>
+              )}
               <button
                 onClick={handleLockoutOtpSubmit}
                 disabled={lockoutOtpLoading || lockoutOtp.join('').length < 6}
