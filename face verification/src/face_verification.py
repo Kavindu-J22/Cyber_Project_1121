@@ -130,6 +130,42 @@ class FaceVerificationEngine:
         
         return embedding.squeeze(0)
     
+    def _detect_face(self, face_sample: Union[str, Path, bytes]) -> bool:
+        """
+        Check if a face is present in the image using OpenCV Haar cascades.
+        Returns False (no face) when camera is covered or no face visible.
+        """
+        try:
+            import cv2
+            from PIL import Image as PILImage
+            from io import BytesIO
+
+            if isinstance(face_sample, (str, Path)):
+                img = cv2.imread(str(face_sample))
+                if img is None:
+                    return False
+            elif isinstance(face_sample, bytes):
+                pil_img = PILImage.open(BytesIO(face_sample)).convert('RGB')
+                img = cv2.cvtColor(np.array(pil_img), cv2.COLOR_RGB2BGR)
+            else:
+                # PIL image
+                pil_img = face_sample.convert('RGB') if hasattr(face_sample, 'convert') else face_sample
+                img = cv2.cvtColor(np.array(pil_img), cv2.COLOR_RGB2BGR)
+
+            gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+            cascade_path = cv2.data.haarcascades + 'haarcascade_frontalface_default.xml'
+            face_cascade = cv2.CascadeClassifier(cascade_path)
+            faces = face_cascade.detectMultiScale(
+                gray, scaleFactor=1.1, minNeighbors=4, minSize=(40, 40)
+            )
+            detected = len(faces) > 0
+            if not detected:
+                logger.warning("No face detected in frame")
+            return detected
+        except Exception as e:
+            logger.warning(f"Face detection check failed ({e}), assuming face present")
+            return True  # Fail-open: don't block on detection errors
+
     def enroll_user(
         self,
         user_id: str,
@@ -137,21 +173,21 @@ class FaceVerificationEngine:
     ) -> Dict[str, Any]:
         """
         Enroll user with multiple face samples
-        
+
         Args:
             user_id: Unique user identifier
             face_samples: List of face image paths or bytes
-            
+
         Returns:
             Enrollment result with statistics
         """
         start_time = time.time()
-        
+
         if len(face_samples) == 0:
             raise ValueError("At least one face sample is required")
-        
+
         logger.info(f"Enrolling user {user_id} with {len(face_samples)} samples")
-        
+
         # Extract embeddings for all samples
         embeddings = []
         for idx, sample in enumerate(face_samples):
@@ -162,22 +198,38 @@ class FaceVerificationEngine:
             except Exception as e:
                 logger.warning(f"  ✗ Failed to process sample {idx + 1}: {e}")
                 continue
-        
+
         if len(embeddings) == 0:
             raise ValueError("Failed to extract embeddings from any sample")
-        
+
         embeddings_array = np.array(embeddings)
-        
+
         # Compute enrollment quality (average pairwise similarity)
         quality_score = self._compute_enrollment_quality(embeddings_array)
-        
+
+        # Compute intra-class similarity statistics for calibrated confidence scoring
+        intra_sims = []
+        for i in range(len(embeddings_array)):
+            for j in range(i + 1, len(embeddings_array)):
+                sim = np.dot(embeddings_array[i], embeddings_array[j]) / (
+                    np.linalg.norm(embeddings_array[i]) * np.linalg.norm(embeddings_array[j]) + 1e-8
+                )
+                intra_sims.append(float(sim))
+        intra_sim_mean = float(np.mean(intra_sims)) if intra_sims else 0.92
+        intra_sim_std = float(np.std(intra_sims)) if len(intra_sims) > 1 else 0.02
+        intra_sim_std = max(intra_sim_std, 0.01)  # minimum std to avoid division by near-zero
+
+        logger.info(f"  Intra-class sim: mean={intra_sim_mean:.4f}, std={intra_sim_std:.4f}")
+
         # Store enrollment
         self.enrollments[user_id] = {
             'embeddings': embeddings_array,
             'num_samples': len(embeddings),
             'enrollment_time': time.time(),
             'quality_score': quality_score,
-            'mean_embedding': np.mean(embeddings_array, axis=0)
+            'mean_embedding': np.mean(embeddings_array, axis=0),
+            'intra_sim_mean': intra_sim_mean,
+            'intra_sim_std': intra_sim_std,
         }
         
         elapsed = (time.time() - start_time) * 1000
@@ -201,17 +253,17 @@ class FaceVerificationEngine:
     ) -> Dict[str, Any]:
         """
         Verify user against enrolled face
-        
+
         Args:
             user_id: User identifier
             face_sample: Face image to verify
             threshold: Custom threshold (uses default if None)
-            
+
         Returns:
             Verification result with confidence score
         """
         start_time = time.time()
-        
+
         # Check if user is enrolled
         if user_id not in self.enrollments:
             return {
@@ -220,11 +272,27 @@ class FaceVerificationEngine:
                 'reason': 'User not enrolled',
                 'success': False
             }
-        
+
         # Use default threshold if not provided
         if threshold is None:
             threshold = self.threshold
-        
+
+        # ── Face detection gate ──────────────────────────────────────────────
+        # If no face is present (covered camera, dark frame, etc.) return very
+        # low confidence immediately without even running the embedding model.
+        if not self._detect_face(face_sample):
+            elapsed = (time.time() - start_time) * 1000
+            logger.warning(f"No face detected for user {user_id} – returning low confidence")
+            return {
+                'verified': False,
+                'confidence_score': 0.05,
+                'mean_confidence': 0.05,
+                'threshold': threshold,
+                'decision': 'NO_FACE_DETECTED',
+                'latency_ms': elapsed,
+                'success': True
+            }
+
         # Extract embedding from probe image
         try:
             probe_embedding = self.extract_embedding(face_sample, return_numpy=True)
@@ -236,45 +304,56 @@ class FaceVerificationEngine:
                 'reason': f'Failed to process image: {str(e)}',
                 'success': False
             }
-        
+
         # Get enrolled embeddings
         enrollment_data = self.enrollments[user_id]
         enrolled_embeddings = enrollment_data['embeddings']
-        
+
         # Compute similarities with all enrolled samples
         similarities = []
         for enrolled_emb in enrolled_embeddings:
             if self.similarity_metric == 'cosine':
-                # Cosine similarity
                 similarity = np.dot(probe_embedding, enrolled_emb) / (
-                    np.linalg.norm(probe_embedding) * np.linalg.norm(enrolled_emb)
+                    np.linalg.norm(probe_embedding) * np.linalg.norm(enrolled_emb) + 1e-8
                 )
             else:
-                # Euclidean distance (convert to similarity)
                 distance = np.linalg.norm(probe_embedding - enrolled_emb)
                 similarity = 1.0 / (1.0 + distance)
-            
             similarities.append(similarity)
-        
-        # Use maximum similarity for decision
+
         max_similarity = float(np.max(similarities))
         mean_similarity = float(np.mean(similarities))
-        
-        # Make decision
-        verified = max_similarity >= threshold
-        
+
+        # ── Calibrated confidence scoring ────────────────────────────────────
+        # Use enrollment intra-class statistics to calibrate the confidence:
+        #   z = (similarity - enrolled_mean) / enrolled_std
+        #   confidence = sigmoid(z * 3 + 1.5)
+        # This maps:  z=0 (at enrolled mean) → ~82%, z=1 → ~99%, z=-1 → ~18%,
+        # z=-2 → ~1%  — so any impostor/covered-camera that falls below the
+        # enrolled distribution drops to near-zero confidence.
+        intra_mean = enrollment_data.get('intra_sim_mean', 0.92)
+        intra_std  = enrollment_data.get('intra_sim_std',  0.02)
+        z = (max_similarity - intra_mean) / intra_std
+        calibrated_confidence = float(1.0 / (1.0 + np.exp(-(z * 3.0 + 1.5))))
+        calibrated_confidence = float(np.clip(calibrated_confidence, 0.0, 1.0))
+
+        verified = calibrated_confidence >= 0.5
+
         elapsed = (time.time() - start_time) * 1000
-        
+
         logger.info(
             f"Verification for {user_id}: "
             f"{'✓ MATCH' if verified else '✗ MISMATCH'} "
-            f"(similarity: {max_similarity:.4f}, threshold: {threshold:.4f})"
+            f"(raw_sim={max_similarity:.4f}, z={z:.2f}, confidence={calibrated_confidence:.4f})"
         )
-        
+
         return {
             'verified': verified,
-            'confidence_score': max_similarity,
-            'mean_confidence': mean_similarity,
+            'confidence_score': calibrated_confidence,
+            'mean_confidence': float(np.clip(
+                1.0 / (1.0 + np.exp(-((mean_similarity - intra_mean) / intra_std * 3.0 + 1.5))), 0.0, 1.0
+            )),
+            'raw_similarity': max_similarity,
             'threshold': threshold,
             'decision': 'MATCH' if verified else 'MISMATCH',
             'latency_ms': elapsed,
@@ -339,7 +418,9 @@ class FaceVerificationEngine:
                 'num_samples': emb_data['num_samples'],
                 'enrollment_time': emb_data['enrollment_time'],
                 'quality_score': emb_data['quality_score'],
-                'mean_embedding': emb_data['mean_embedding'].tolist()
+                'mean_embedding': emb_data['mean_embedding'].tolist(),
+                'intra_sim_mean': emb_data.get('intra_sim_mean', 0.92),
+                'intra_sim_std': emb_data.get('intra_sim_std', 0.02),
             }
         with open(filepath, 'wb') as f:
             pickle.dump(data, f)
@@ -357,7 +438,9 @@ class FaceVerificationEngine:
                 'num_samples': emb_data['num_samples'],
                 'enrollment_time': emb_data['enrollment_time'],
                 'quality_score': emb_data['quality_score'],
-                'mean_embedding': np.array(emb_data['mean_embedding'])
+                'mean_embedding': np.array(emb_data['mean_embedding']),
+                'intra_sim_mean': emb_data.get('intra_sim_mean', 0.92),
+                'intra_sim_std': emb_data.get('intra_sim_std', 0.02),
             }
         logger.info(f"✓ Loaded {len(self.enrollments)} face enrollments from {filepath}")
 

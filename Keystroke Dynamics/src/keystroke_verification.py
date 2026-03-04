@@ -3,6 +3,7 @@ Keystroke Verification Module
 Continuous user verification through keystroke dynamics
 """
 
+import math
 import torch
 import numpy as np
 from typing import Dict, List, Tuple, Optional
@@ -88,13 +89,28 @@ class KeystrokeVerifier:
             self.user_thresholds[user_id] = user_threshold
             logger.info(f"Adaptive threshold for {user_id}: {user_threshold:.4f} (mean: {mean_sim:.4f}, std: {std_sim:.4f})")
 
+        # Compute intra-class similarity statistics for calibrated confidence scoring.
+        # These represent how similar the enrolled user's OWN samples are to the template.
+        intra_sims = []
+        for i in range(len(embeddings)):
+            emb_i = embeddings[i].unsqueeze(0) if embeddings[i].dim() == 1 else embeddings[i]
+            temp_2d = template.unsqueeze(0) if template.dim() == 1 else template
+            sim = self.compute_similarity(emb_i, temp_2d)
+            intra_sims.append(sim)
+        intra_sim_mean = float(np.mean(intra_sims)) if intra_sims else 0.90
+        intra_sim_std = float(np.std(intra_sims)) if len(intra_sims) > 1 else 0.03
+        intra_sim_std = max(intra_sim_std, 0.01)  # prevent division by near-zero
+        logger.info(f"Keystroke intra-class sim: mean={intra_sim_mean:.4f}, std={intra_sim_std:.4f}")
+
         # Store template
         self.enrolled_templates[user_id] = {
             'template': template,
             'embeddings': embeddings,
             'n_samples': len(keystroke_samples),
             'enrollment_time': time.time(),
-            'threshold': user_threshold
+            'threshold': user_threshold,
+            'intra_sim_mean': intra_sim_mean,
+            'intra_sim_std': intra_sim_std,
         }
 
         logger.info(f"User {user_id} enrolled successfully with {len(keystroke_samples)} samples")
@@ -142,9 +158,22 @@ class KeystrokeVerifier:
         # Compute similarity
         similarity = self.compute_similarity(embedding, template)
 
-        # Verification decision using user-specific threshold
-        verified = similarity >= user_threshold
-        confidence = float(similarity)
+        # ── Calibrated confidence scoring ────────────────────────────────────
+        # Use enrollment intra-class statistics to calibrate the confidence:
+        #   z = (similarity - enrolled_mean) / enrolled_std
+        #   confidence = sigmoid(z * 3 + 1.5)
+        # This maps:  z=0 (at enrolled mean) → ~82%, z=1 → ~99%, z=-1 → ~18%
+        # so any impostor that falls below the enrolled distribution drops to
+        # near-zero confidence instead of always showing ~95%.
+        intra_mean = self.enrolled_templates[user_id].get('intra_sim_mean', 0.90)
+        intra_std  = self.enrolled_templates[user_id].get('intra_sim_std',  0.03)
+        z = (float(similarity) - intra_mean) / intra_std
+        calibrated_confidence = 1.0 / (1.0 + math.exp(-(z * 3.0 + 1.5)))
+        calibrated_confidence = max(0.0, min(1.0, calibrated_confidence))
+
+        # Verification decision
+        verified = calibrated_confidence >= 0.5
+        confidence = calibrated_confidence
         
         # Determine confidence level
         if confidence >= self.config.verification.confidence_levels.high:
