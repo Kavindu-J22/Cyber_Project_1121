@@ -421,8 +421,8 @@ const Meeting = () => {
         if (score < 50) {
           if (!lowTrustStartRef.current) {
             lowTrustStartRef.current = Date.now();
-          } else if (Date.now() - lowTrustStartRef.current >= 15 * 60 * 1000) {
-            // Trust has been below 50% for 15 continuous minutes → trigger lockout
+          } else if (Date.now() - lowTrustStartRef.current >= 1 * 60 * 1000) {
+            // Trust has been below 50% for 1 continuous minute → trigger lockout (TEST MODE)
             isLockedOutRef.current = true;
             setIsLockedOut(true);
             // Disable mic and camera
