@@ -67,13 +67,18 @@ class SpeakerEmbeddingModel:
         except Exception as e:
             raise RuntimeError(f"Failed to load ECAPA-TDNN model: {str(e)}")
     
+    # ECAPA-TDNN requires at least ~1.6 s of audio (25600 samples @ 16 kHz).
+    # Shorter clips cause internal CNN padding errors:
+    #   "padding (4,4) at dimension 2 of input [1, 128, 4]"
+    MIN_AUDIO_SAMPLES = 25600  # 1.6 s @ 16 kHz
+
     def extract_embedding(self, audio: Union[np.ndarray, torch.Tensor]) -> np.ndarray:
         """
         Extract speaker embedding from audio
-        
+
         Args:
             audio: Audio array or tensor (single channel)
-            
+
         Returns:
             192-dimensional speaker embedding
         """
@@ -81,14 +86,29 @@ class SpeakerEmbeddingModel:
             # Convert to tensor if numpy array
             if isinstance(audio, np.ndarray):
                 audio = torch.from_numpy(audio).float()
-            
-            # Ensure correct shape [batch, samples] or [samples]
+
+            # Handle stereo: average channels to mono
+            if audio.dim() == 2 and audio.shape[0] == 2:
+                audio = audio.mean(dim=0)   # [2, samples] → [samples]
+            elif audio.dim() == 2 and audio.shape[-1] == 2:
+                audio = audio.mean(dim=-1)  # [samples, 2] → [samples]
+
+            # Ensure correct shape [batch, samples]
             if audio.dim() == 1:
-                audio = audio.unsqueeze(0)
-            
+                audio = audio.unsqueeze(0)  # [samples] → [1, samples]
+
+            # ── Minimum length guard ──────────────────────────────────────────
+            # ECAPA-TDNN internal CNN layers require a mel spectrogram with at
+            # least 9 time frames.  With hop_length=160 that means ≥ 1440 raw
+            # samples, but internal sub-sampling pushes the safe minimum to
+            # ~25 600 samples (1.6 s).  Pad with silence when shorter.
+            if audio.shape[-1] < self.MIN_AUDIO_SAMPLES:
+                pad_len = self.MIN_AUDIO_SAMPLES - audio.shape[-1]
+                audio = torch.nn.functional.pad(audio, (0, pad_len))
+
             # Move to device
             audio = audio.to(self.device)
-            
+
             # Extract embedding
             with torch.no_grad():
                 embedding = self.model.encode_batch(audio)

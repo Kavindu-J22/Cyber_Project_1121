@@ -64,23 +64,29 @@ class AudioPreprocessor:
     def load_audio_from_bytes(self, audio_bytes: bytes) -> Tuple[np.ndarray, int]:
         """
         Load audio from bytes (for real-time streaming)
-        
+
         Args:
             audio_bytes: Audio data as bytes
-            
+
         Returns:
             Tuple of (audio_array, sample_rate)
         """
         try:
             # Load from bytes
             audio, sr = sf.read(io.BytesIO(audio_bytes))
-            
+
+            # soundfile.read returns:
+            #   mono   → shape (samples,)     1-D  ✓
+            #   stereo → shape (samples, ch)  2-D  — must average channels to mono
+            if audio.ndim == 2:
+                audio = audio.mean(axis=1)  # (samples, channels) → (samples,)
+
             # Resample if necessary
             if sr != self.sample_rate:
                 audio = librosa.resample(audio, orig_sr=sr, target_sr=self.sample_rate)
-            
+
             return audio, self.sample_rate
-            
+
         except Exception as e:
             raise RuntimeError(f"Error loading audio from bytes: {str(e)}")
     

@@ -272,7 +272,6 @@ const Meeting = () => {
           }
 
           // Mouse — accumulate events until we have enough (≥ 50 per backend min_events).
-          // The backend now returns 0.5 for insufficient events, so we always get a valid response.
           const me = mouseCapture.current.getEvents();
           if (me.length >= 50) {
             try {
@@ -281,9 +280,19 @@ const Meeting = () => {
                 { headers: { Authorization: `Bearer ${token}` } }
               );
               if (mounted) setMouseConf(r.data.data?.confidence ?? null);
-              mouseCapture.current.start(); // reset only on success
+              mouseCapture.current.start(); // reset buffer only on success
             } catch (e) { console.error('Mouse verification error:', e); }
             // On failure: keep accumulating — do NOT reset
+          } else {
+            // Not enough mouse events this cycle → apply Zero Trust decay.
+            // Each inactive 10-s cycle nudges 15 % toward the neutral 50 % score
+            // so that a frozen score doesn't persist indefinitely when the user
+            // stops moving the mouse.  null stays null (widget shows "Move mouse…")
+            if (mounted) {
+              setMouseConf(prev =>
+                prev === null ? null : +(prev * 0.85 + 0.5 * 0.15).toFixed(4)
+              );
+            }
           }
         }, 10000);
 

@@ -149,26 +149,36 @@ class MouseVerifier:
         )
 
         # ── Calibrated confidence scoring ────────────────────────────────────
-        # Anchor confidence to the match threshold (not the enrollment mean).
+        # The mouse embedding model clusters all normal inputs near similarity
+        # ~0.93–0.99 (the model is not strongly discriminating). Using a wide
+        # scale (0.05) with a low center (0.82) maps everything to ~95% and
+        # creates no variation. Instead we use:
         #
-        #   center = threshold - 0.03   (slightly below threshold)
-        #   scale  = 0.05               (spread: 5% similarity == 1 z-unit)
-        #   z      = (similarity - center) / scale
-        #   confidence = sigmoid(z)
+        #   center = 0.93   (midpoint of the model's typical output range)
+        #   scale  = 0.02   (tight: 0.02 similarity == 1 z-unit)
+        #   confidence = sigmoid((similarity - center) / scale)
         #
-        # Concrete examples (threshold = 0.85 → center = 0.82):
-        #   sim = 0.97 → z ≈ +3.0 → 95 %   (clear match)
-        #   sim = 0.90 → z ≈ +1.6 → 83 %
-        #   sim = 0.85 → z ≈ +0.6 → 65 %   (at threshold)
-        #   sim = 0.80 → z ≈ −0.4 → 40 %
-        #   sim = 0.70 → z ≈ −2.4 →  8 %   (different user)
-        threshold = self.config.verification.threshold
-        center = threshold - 0.03
-        scale  = 0.05
-        z = (float(similarity.item()) - center) / scale
+        # This gives a meaningful spread across the 0.89–0.99 range:
+        #   sim = 0.99 → z = +3.0 → 95 %  (very close match)
+        #   sim = 0.97 → z = +2.0 → 88 %  (good match)
+        #   sim = 0.95 → z = +1.0 → 73 %  (acceptable)
+        #   sim = 0.93 → z =  0.0 → 50 %  (midpoint)
+        #   sim = 0.91 → z = −1.0 → 27 %  (suspicious)
+        #   sim = 0.89 → z = −2.0 → 12 %  (likely impostor)
+        #   sim = 0.87 → z = −3.0 →  5 %  (clear mismatch)
+        raw_sim = float(similarity.item())
+        center = 0.93
+        scale  = 0.02
+        z = (raw_sim - center) / scale
         calibrated_confidence = 1.0 / (1.0 + math.exp(-z))
         calibrated_confidence = max(0.0, min(1.0, calibrated_confidence))
 
+        logger.debug(
+            f"Mouse scoring: raw_sim={raw_sim:.4f}, z={z:.2f}, "
+            f"confidence={calibrated_confidence:.4f}"
+        )
+
+        threshold = self.config.verification.threshold
         confidence = calibrated_confidence
         verified = confidence >= threshold
         

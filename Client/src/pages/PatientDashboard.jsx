@@ -201,7 +201,7 @@ const PatientDashboard = () => {
                 <div key={doctor._id} className="border border-gray-200 rounded-lg p-6 hover:shadow-lg transition-shadow">
                   {/* Profile Image */}
                   <div className="flex flex-col items-center mb-4">
-                    <div className="w-24 h-24 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center mb-3">
+                    <div className="w-24 h-24 rounded-full overflow-hidden bg-blue-50 flex items-center justify-center mb-3">
                       {doctor.profileImage ? (
                         <img
                           src={doctor.profileImage}
@@ -209,7 +209,7 @@ const PatientDashboard = () => {
                           className="w-full h-full object-cover"
                         />
                       ) : (
-                        <User className="h-12 w-12 text-gray-400" />
+                        <Stethoscope className="h-12 w-12 text-blue-500" />
                       )}
                     </div>
                     <h3 className="text-lg font-semibold text-gray-900 text-center">

@@ -106,10 +106,14 @@ class AntiSpoofingClassifier:
             }
         
         try:
-            # Extract features
+            # Extract features — returns [batch, n_mels, time] (3-D)
             features = self.extract_features(audio, sample_rate)
             features = features.to(self.device)
-            
+
+            # LightweightAntiSpoofingModel uses Conv2d which expects
+            # [batch, channels, freq, time] (4-D).  Add the channel dim.
+            features = features.unsqueeze(1)  # [1, n_mels, T] → [1, 1, n_mels, T]
+
             # Run detection
             with torch.no_grad():
                 output = self.model(features)

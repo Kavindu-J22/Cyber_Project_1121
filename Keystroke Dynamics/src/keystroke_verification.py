@@ -158,18 +158,34 @@ class KeystrokeVerifier:
         # Compute similarity
         similarity = self.compute_similarity(embedding, template)
 
-        # ── Calibrated confidence scoring ────────────────────────────────────
-        # Use enrollment intra-class statistics to calibrate the confidence:
-        #   z = (similarity - enrolled_mean) / enrolled_std
-        #   confidence = sigmoid(z * 3 + 1.5)
-        # This maps:  z=0 (at enrolled mean) → ~82%, z=1 → ~99%, z=-1 → ~18%
-        # so any impostor that falls below the enrolled distribution drops to
-        # near-zero confidence instead of always showing ~95%.
-        intra_mean = self.enrolled_templates[user_id].get('intra_sim_mean', 0.90)
-        intra_std  = self.enrolled_templates[user_id].get('intra_sim_std',  0.03)
-        z = (float(similarity) - intra_mean) / intra_std
-        calibrated_confidence = 1.0 / (1.0 + math.exp(-(z * 3.0 + 1.5)))
+        # ── Threshold-anchored confidence scoring ─────────────────────────────
+        # Anchor confidence to the model's decision boundary (not the enrollment
+        # intra-class mean). This is critical for keystroke because:
+        #   • Enrollment is done typing a fixed passage → tight intra-class stats
+        #   • Chat typing uses completely different text → different timing vector
+        #   • The old z-score mapped that to z ≈ -14 → 0.000 for the genuine user
+        #
+        #   center = threshold - 0.03   (slightly below boundary)
+        #   scale  = 0.05               (5% similarity == 1 z-unit)
+        #   confidence = sigmoid((similarity - center) / scale)
+        #
+        # Examples (threshold = 0.85 → center = 0.82):
+        #   sim = 0.95 → z ≈ +2.6 → 93 %  (clearly this user)
+        #   sim = 0.90 → z ≈ +1.6 → 83 %
+        #   sim = 0.85 → z ≈ +0.6 → 65 %  (at threshold)
+        #   sim = 0.75 → z ≈ −1.4 → 20 %
+        #   sim = 0.65 → z ≈ −3.4 →  3 %  (very different typing style)
+        center = user_threshold - 0.03
+        scale  = 0.05
+        z = (float(similarity) - center) / scale
+        calibrated_confidence = 1.0 / (1.0 + math.exp(-z))
         calibrated_confidence = max(0.0, min(1.0, calibrated_confidence))
+
+        logger.debug(
+            f"Keystroke scoring: sim={float(similarity):.4f}, "
+            f"threshold={user_threshold:.4f}, z={z:.2f}, "
+            f"confidence={calibrated_confidence:.4f}"
+        )
 
         # Verification decision
         verified = calibrated_confidence >= 0.5
