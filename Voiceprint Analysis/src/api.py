@@ -227,11 +227,21 @@ async def verify_speaker(request: VerificationRequest):
             audio, _ = preprocessor.load_audio(request.audio_file)
             anti_spoof_result = anti_spoofing.detect_spoofing(audio)
         
-        # Trigger alert if verification fails
-        alert_triggered = not result['verified']
+        # Log the actual similarity score for diagnostics
+        conf = result.get('confidence_score', 0.0)
+        logger.info(
+            f"Voice verification for speaker {request.speaker_id}: "
+            f"confidence={conf:.4f}, verified={result.get('verified')}"
+        )
+
+        # Only raise a security alert when confidence is genuinely low
+        # (below monitoring.alert_threshold = 0.5), NOT on every borderline
+        # case where score sits between 0.50–0.65 (verification threshold).
+        alert_threshold = config.get('monitoring.alert_threshold', 0.5)
+        alert_triggered = conf < alert_threshold
         if alert_triggered:
             await trigger_alert(request.speaker_id, result, anti_spoof_result)
-        
+
         return VerificationResponse(
             **result,
             anti_spoofing=anti_spoof_result,
@@ -277,8 +287,18 @@ async def verify_speaker_upload(
             audio, _ = preprocessor.load_audio_from_bytes(audio_bytes)
             anti_spoof_result = anti_spoofing.detect_spoofing(audio)
 
-        # Trigger alert if verification fails
-        alert_triggered = not result.get('verified', False)
+        # Log the actual similarity score for diagnostics
+        conf = result.get('confidence_score', 0.0)
+        logger.info(
+            f"Voice verification for speaker {speaker_id}: "
+            f"confidence={conf:.4f}, verified={result.get('verified')}"
+        )
+
+        # Only raise a security alert when confidence is genuinely low
+        # (below monitoring.alert_threshold = 0.5), NOT on every borderline
+        # case where score sits between 0.50–0.65 (verification threshold).
+        alert_threshold = config.get('monitoring.alert_threshold', 0.5)
+        alert_triggered = conf < alert_threshold
         if alert_triggered:
             await trigger_alert(speaker_id, result, anti_spoof_result)
 

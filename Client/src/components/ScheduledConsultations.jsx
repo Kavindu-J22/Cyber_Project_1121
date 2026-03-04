@@ -2,11 +2,16 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import { Calendar, Clock, Video, User, AlertCircle, CheckCircle, XCircle } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+import ConsultationStartVerificationModal from './ConsultationStartVerificationModal';
 
 const ScheduledConsultations = () => {
+  const { user } = useAuth();
   const [consultations, setConsultations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [starting, setStarting] = useState(null);
+  // Verification modal state
+  const [verifyingAppointment, setVerifyingAppointment] = useState(null); // appointment object
 
   useEffect(() => {
     fetchConsultations();
@@ -28,13 +33,13 @@ const ScheduledConsultations = () => {
     }
   };
 
+  // Called by the verification modal once all 3 steps pass
   const handleStartConsultation = async (appointmentId) => {
+    setVerifyingAppointment(null);
     setStarting(appointmentId);
     try {
       const response = await axios.post(`/api/consultations/doctor/${appointmentId}/start`);
       toast.success('Consultation started! Patient has been notified via email.');
-
-      // Navigate to meeting room
       const consultationRoomId = response.data.data.consultation.consultationRoomId;
       window.location.href = `/meeting/${consultationRoomId}`;
     } catch (error) {
@@ -42,6 +47,11 @@ const ScheduledConsultations = () => {
       toast.error(error.response?.data?.message || 'Failed to start consultation');
       setStarting(null);
     }
+  };
+
+  // Opens the verification modal
+  const handleVerifyThenStart = (appointment) => {
+    setVerifyingAppointment(appointment);
   };
 
   const formatDate = (dateString) => {
@@ -102,7 +112,7 @@ const ScheduledConsultations = () => {
             </div>
           )}
           <button
-            onClick={() => handleStartConsultation(appointment._id)}
+            onClick={() => handleVerifyThenStart({ appointment, consultation, timeStatus })}
             disabled={starting === appointment._id}
             className="w-full px-6 py-3 bg-primary-600 text-white rounded-lg font-semibold hover:bg-primary-700 transition-colors flex items-center justify-center disabled:opacity-50"
           >
@@ -208,6 +218,15 @@ const ScheduledConsultations = () => {
 
   return (
     <div className="space-y-8">
+      {/* ── Consultation Start Verification Modal ── */}
+      {verifyingAppointment && (
+        <ConsultationStartVerificationModal
+          appointment={verifyingAppointment.appointment}
+          doctorEmail={user?.email}
+          onVerified={() => handleStartConsultation(verifyingAppointment.appointment._id)}
+          onClose={() => setVerifyingAppointment(null)}
+        />
+      )}
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
         <div className="flex items-start">
           <AlertCircle className="h-5 w-5 text-blue-600 mt-0.5 mr-3 flex-shrink-0" />

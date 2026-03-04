@@ -104,6 +104,92 @@ export const verifyOTP = async (req, res) => {
   }
 };
 
+// ─── Consultation OTP (for authenticated doctors) ────────────────────────────
+
+// Send OTP to already-logged-in doctor for consultation start verification
+export const sendConsultationOTP = async (req, res) => {
+  try {
+    const doctor = req.doctor;
+    if (!doctor) {
+      return res.status(401).json({ success: false, message: 'Doctor not authenticated' });
+    }
+
+    const email = doctor.email;
+
+    // Delete existing consultation OTPs for this email
+    await OTP.deleteMany({ email: email.toLowerCase(), userType: 'consultation' });
+
+    // Generate and save new OTP
+    const otp = generateOTP();
+    await OTP.create({ email: email.toLowerCase(), otp, userType: 'consultation' });
+
+    // Send email
+    await sendOTPEmail(email, otp, 'consultation');
+
+    res.status(200).json({ success: true, message: 'OTP sent to your registered email' });
+  } catch (error) {
+    console.error('sendConsultationOTP error:', error);
+    res.status(500).json({ success: false, message: error.message || 'Failed to send OTP' });
+  }
+};
+
+// Verify consultation OTP
+export const verifyConsultationOTP = async (req, res) => {
+  try {
+    const doctor = req.doctor;
+    if (!doctor) {
+      return res.status(401).json({ success: false, message: 'Doctor not authenticated' });
+    }
+
+    const { otp } = req.body;
+    if (!otp) {
+      return res.status(400).json({ success: false, message: 'OTP is required' });
+    }
+
+    const otpRecord = await OTP.findOne({
+      email: doctor.email.toLowerCase(),
+      userType: 'consultation',
+      otp
+    });
+
+    if (!otpRecord) {
+      return res.status(400).json({ success: false, message: 'Invalid or expired OTP' });
+    }
+
+    await OTP.deleteOne({ _id: otpRecord._id });
+
+    res.status(200).json({ success: true, message: 'OTP verified successfully' });
+  } catch (error) {
+    console.error('verifyConsultationOTP error:', error);
+    res.status(500).json({ success: false, message: 'Failed to verify OTP' });
+  }
+};
+
+// Resend consultation OTP
+export const resendConsultationOTP = async (req, res) => {
+  try {
+    const doctor = req.doctor;
+    if (!doctor) {
+      return res.status(401).json({ success: false, message: 'Doctor not authenticated' });
+    }
+
+    const email = doctor.email;
+
+    await OTP.deleteMany({ email: email.toLowerCase(), userType: 'consultation' });
+
+    const otp = generateOTP();
+    await OTP.create({ email: email.toLowerCase(), otp, userType: 'consultation' });
+    await sendOTPEmail(email, otp, 'consultation');
+
+    res.status(200).json({ success: true, message: 'OTP resent successfully' });
+  } catch (error) {
+    console.error('resendConsultationOTP error:', error);
+    res.status(500).json({ success: false, message: 'Failed to resend OTP' });
+  }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 // Resend OTP
 export const resendOTP = async (req, res) => {
   try {

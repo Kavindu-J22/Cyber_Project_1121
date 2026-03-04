@@ -13,7 +13,7 @@ const otpSchema = new mongoose.Schema({
   },
   userType: {
     type: String,
-    enum: ['doctor', 'patient'],
+    enum: ['doctor', 'patient', 'consultation'],
     required: true
   },
   createdAt: {

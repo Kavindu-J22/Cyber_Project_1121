@@ -22,7 +22,7 @@ export const sendOTPEmail = async (email, otp, userType) => {
       address: process.env.EMAIL_USER || 'cn3581743@gmail.com'
     },
     to: email,
-    subject: 'Email Verification - MediConsult OTP',
+    subject: userType === 'consultation' ? '🔐 Consultation Security OTP - MediConsult' : 'Email Verification - MediConsult OTP',
     html: `
       <!DOCTYPE html>
       <html>
@@ -69,10 +69,13 @@ export const sendOTPEmail = async (email, otp, userType) => {
       </head>
       <body>
         <div class="container">
-          <h2 style="margin-top: 0;">🏥 MediConsult Email Verification</h2>
+          <h2 style="margin-top: 0;">${userType === 'consultation' ? '🔐 Consultation Security Verification' : '🏥 MediConsult Email Verification'}</h2>
           <p>Hello,</p>
-          <p>Thank you for registering as a <strong>${userType === 'doctor' ? 'Doctor' : 'Patient'}</strong> on <strong>MediConsult</strong> - Zero Trust Secure Telehealth Platform.</p>
-          <p>Your One-Time Password (OTP) for email verification is:</p>
+          ${userType === 'consultation'
+            ? '<p>You are about to start a <strong>secure consultation session</strong> on <strong>MediConsult</strong>. Please use the OTP below to verify your identity before proceeding.</p>'
+            : `<p>Thank you for registering as a <strong>${userType === 'doctor' ? 'Doctor' : 'Patient'}</strong> on <strong>MediConsult</strong> - Zero Trust Secure Telehealth Platform.</p>`
+          }
+          <p>Your One-Time Password (OTP) for ${userType === 'consultation' ? 'consultation start verification' : 'email verification'} is:</p>
 
           <div class="otp-box">${otp}</div>
 
