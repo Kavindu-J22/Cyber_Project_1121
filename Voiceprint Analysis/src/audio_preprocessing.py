@@ -5,10 +5,8 @@ Handles audio loading, segmentation, VAD, and noise reduction
 import torch
 import torchaudio
 import numpy as np
-import librosa
 import soundfile as sf
 # import webrtcvad  # Removed - requires C++ compiler
-import noisereduce as nr
 from typing import Tuple, List, Optional
 from pathlib import Path
 import io
@@ -29,6 +27,23 @@ class AudioPreprocessor:
         
         # VAD settings (using energy-based VAD instead of webrtcvad)
         self.vad_threshold = self.config.get('audio.vad_threshold', 0.01)  # Energy threshold
+        self._noisereduce_module = None
+        self._noisereduce_import_attempted = False
+
+    def _get_noisereduce(self):
+        """Lazily import noisereduce to avoid startup crashes when optional deps are missing."""
+        if self._noisereduce_import_attempted:
+            return self._noisereduce_module
+
+        self._noisereduce_import_attempted = True
+        try:
+            import noisereduce as nr  # Local import by design
+            self._noisereduce_module = nr
+        except Exception as e:
+            print(f"Warning: noisereduce unavailable ({e}). Continuing without noise reduction.")
+            self._noisereduce_module = None
+
+        return self._noisereduce_module
     
     def load_audio(self, audio_path: str) -> Tuple[np.ndarray, int]:
         """
@@ -83,7 +98,10 @@ class AudioPreprocessor:
 
             # Resample if necessary
             if sr != self.sample_rate:
-                audio = librosa.resample(audio, orig_sr=sr, target_sr=self.sample_rate)
+                # Use torchaudio resampling to avoid hard dependency on librosa at import time.
+                audio_tensor = torch.from_numpy(audio).float().unsqueeze(0)
+                audio_tensor = torchaudio.functional.resample(audio_tensor, sr, self.sample_rate)
+                audio = audio_tensor.squeeze(0).numpy()
 
             return audio, self.sample_rate
 
@@ -146,6 +164,10 @@ class AudioPreprocessor:
             return audio
         
         try:
+            nr = self._get_noisereduce()
+            if nr is None:
+                return audio
+
             # Apply noise reduction
             reduced_noise = nr.reduce_noise(y=audio, sr=sample_rate, stationary=True)
             return reduced_noise
