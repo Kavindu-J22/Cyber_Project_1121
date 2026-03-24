@@ -1,0 +1,1146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Zero Trust Telehealth — Full Technical Reference</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:#0d1117;color:#c9d1d9;line-height:1.7;padding:0}
+a{color:#58a6ff;text-decoration:none}
+a:hover{text-decoration:underline}
+h1{font-size:2.2rem;color:#f0f6fc;text-align:center;padding:36px 24px 8px}
+h2{font-size:1.55rem;color:#79c0ff;border-bottom:2px solid #21262d;padding-bottom:10px;margin:36px 0 18px}
+h3{font-size:1.2rem;color:#d2a8ff;margin:24px 0 12px}
+h4{font-size:1rem;color:#ffa657;margin:18px 0 8px}
+p{margin-bottom:14px;color:#c9d1d9}
+ul,ol{margin:0 0 14px 22px}
+li{margin-bottom:6px}
+.subtitle{text-align:center;color:#8b949e;margin-bottom:10px;font-size:1rem}
+.badge{display:inline-block;padding:3px 12px;border-radius:999px;font-size:.75rem;font-weight:700;margin:2px}
+.b-blue{background:#0d2137;color:#79c0ff;border:1px solid #1f6feb}
+.b-green{background:#0a2114;color:#56d364;border:1px solid #238636}
+.b-purple{background:#1e1030;color:#d2a8ff;border:1px solid #6e40c9}
+.b-orange{background:#1e1200;color:#ffa657;border:1px solid #9e6a03}
+.b-red{background:#2d0f0f;color:#f85149;border:1px solid #da3633}
+.page-header{background:linear-gradient(135deg,#161b22,#0d1117);border-bottom:1px solid #21262d;padding:40px 24px 32px;text-align:center}
+.page-header p{max-width:800px;margin:12px auto 0;color:#8b949e}
+.toc{background:#161b22;border:1px solid #21262d;border-radius:12px;padding:24px 32px;max-width:900px;margin:32px auto}
+.toc h3{color:#e6edf3;margin-top:0;margin-bottom:14px}
+.toc ol{counter-reset:none}
+.toc li{margin-bottom:4px}
+.toc a{color:#58a6ff}
+.container{max-width:1100px;margin:0 auto;padding:32px 24px}
+.part-header{background:#161b22;border-left:4px solid #1f6feb;border-radius:0 10px 10px 0;padding:16px 24px;margin:40px 0 24px}
+.part-header h2{border:none;margin:0;padding:0;font-size:1.7rem}
+.part-header p{margin:6px 0 0;color:#8b949e;font-size:.9rem}
+.section-card{background:#161b22;border:1px solid #21262d;border-radius:14px;padding:28px;margin-bottom:32px}
+.section-card.face{border-top:3px solid #1f6feb}
+.section-card.voice{border-top:3px solid #238636}
+.section-card.keystroke{border-top:3px solid #6e40c9}
+.section-card.mouse{border-top:3px solid #9e6a03}
+.section-card.integration{border-top:3px solid #da3633}
+.section-card.dataflow{border-top:3px solid #1f6feb}
+.diagram-box{background:#0d1117;border:1px solid #30363d;border-radius:10px;padding:20px;margin:20px 0;overflow-x:auto}
+.mermaid{display:flex;justify-content:center}
+.mermaid svg{max-width:100%;height:auto}
+table{width:100%;border-collapse:collapse;margin:16px 0;font-size:.9rem}
+th{background:#21262d;color:#e6edf3;padding:10px 14px;text-align:left;border:1px solid #30363d}
+td{padding:9px 14px;border:1px solid #30363d;color:#c9d1d9}
+tr:nth-child(even) td{background:#161b22}
+tr:hover td{background:#1c2128}
+.code-block{background:#0d1117;border:1px solid #30363d;border-radius:8px;padding:16px;margin:14px 0;font-family:'Consolas','Courier New',monospace;font-size:.84rem;color:#e6edf3;overflow-x:auto;white-space:pre}
+.highlight-box{background:#0a2114;border:1px solid #238636;border-radius:8px;padding:14px 18px;margin:16px 0}
+.warning-box{background:#1e1200;border:1px solid #9e6a03;border-radius:8px;padding:14px 18px;margin:16px 0}
+.info-box{background:#0d2137;border:1px solid #1f6feb;border-radius:8px;padding:14px 18px;margin:16px 0}
+.metric-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin:20px 0}
+.metric-card{background:#0d1117;border:1px solid #30363d;border-radius:10px;padding:16px;text-align:center}
+.metric-val{font-size:1.8rem;font-weight:bold;color:#58a6ff;display:block}
+.metric-lbl{font-size:.8rem;color:#8b949e;margin-top:4px;display:block}
+.flow-step{display:flex;align-items:flex-start;gap:14px;margin:12px 0;padding:14px;background:#161b22;border-radius:8px;border:1px solid #21262d}
+.step-num{background:#1f6feb;color:#fff;border-radius:50%;width:32px;height:32px;display:flex;align-items:center;justify-content:center;font-weight:bold;flex-shrink:0;font-size:.9rem}
+.step-content h4{margin:0 0 4px;color:#e6edf3;font-size:.95rem}
+.step-content p{margin:0;font-size:.87rem;color:#8b949e}
+.latency-bar{display:flex;align-items:center;gap:10px;margin:6px 0}
+.latency-bar .bar{height:18px;border-radius:4px;min-width:4px}
+.latency-bar .lbl{font-size:.82rem;color:#8b949e;min-width:160px}
+.latency-bar .val{font-size:.82rem;color:#e6edf3;min-width:60px}
+footer{text-align:center;padding:32px;border-top:1px solid #21262d;color:#484f58;font-size:.82rem;margin-top:40px}
+@media(max-width:700px){.metric-grid{grid-template-columns:1fr 1fr}.container{padding:16px 12px}}
+</style>
+</head>
+<body>
+<!-- CONTENT INJECTED BELOW -->
+<!-- ═══════════════════════════════════════ PAGE HEADER ═══════════════════ -->
+<div class="page-header">
+  <h1>🔐 Zero Trust Telehealth Platform</h1>
+  <h2 style="border:none;text-align:center;font-size:1.2rem;color:#8b949e;margin:4px 0 0">Full Technical Reference Document</h2>
+  <p>Complete technical reference covering ML model training architectures, meeting environment integration, trust score computation, and the full end-to-end data flow with timing analysis across all four biometric modalities.</p>
+  <div style="margin-top:16px">
+    <span class="badge b-blue">Face Verification</span>
+    <span class="badge b-green">Voiceprint Analysis</span>
+    <span class="badge b-purple">Keystroke Dynamics</span>
+    <span class="badge b-orange">Mouse Movement</span>
+    <span class="badge b-red">Zero Trust Auth</span>
+  </div>
+</div>
+
+<div class="container">
+<!-- ═══════════════════════════════════════ TABLE OF CONTENTS ══════════════ -->
+<div class="toc">
+  <h3>📋 Table of Contents</h3>
+  <ol>
+    <li><a href="#part1">PART 1 — ML Model Training (Component-Wise)</a>
+      <ol>
+        <li><a href="#face">Face Verification — ResNet50 + Triplet Loss</a></li>
+        <li><a href="#voice">Voiceprint Analysis — ECAPA-TDNN (SpeechBrain)</a></li>
+        <li><a href="#keystroke">Keystroke Dynamics — Deep MLP + Triplet Loss</a></li>
+        <li><a href="#mouse">Mouse Movement — Siamese MLP + Hard Triplet Mining</a></li>
+      </ol>
+    </li>
+    <li><a href="#part2">PART 2 — Meeting Environment: Component Integration &amp; Trust Score</a>
+      <ol>
+        <li><a href="#connect">How the 4 ML Services Connect in a Meeting Session</a></li>
+        <li><a href="#trustcalc">Trust Score Calculation Algorithm</a></li>
+        <li><a href="#accuracy">Product Accuracy &amp; Performance Metrics</a></li>
+        <li><a href="#lockout">Zero Trust Lockout Mechanism</a></li>
+      </ol>
+    </li>
+    <li><a href="#part3">PART 3 — End-to-End Data Flow with Timing &amp; Latency</a>
+      <ol>
+        <li><a href="#capture">Step 1: Browser Biometric Capture</a></li>
+        <li><a href="#fe2be">Step 2: Frontend → Backend (REST API)</a></li>
+        <li><a href="#be2ml">Step 3: Backend → ML Services (HTTP Proxy)</a></li>
+        <li><a href="#ml2be">Step 4: ML Processing &amp; Response</a></li>
+        <li><a href="#be2fe">Step 5: Backend → Frontend Response</a></li>
+        <li><a href="#display">Step 6: Frontend Display &amp; UI Update</a></li>
+        <li><a href="#timing">Complete Timing &amp; Latency Table</a></li>
+      </ol>
+    </li>
+  </ol>
+</div>
+
+<!-- ═══════════════════════════════════════ PART 1 ════════════════════════ -->
+<div class="part-header" id="part1">
+  <h2>🧠 PART 1 — ML Model Training (Component-Wise)</h2>
+  <p>Detailed training architectures, hyperparameters, data pipelines, training cycles, and component diagrams for all four biometric ML models used in the Zero Trust Telehealth Platform.</p>
+</div>
+
+<!-- ─────────────────── 1.1 FACE VERIFICATION ─────────────────── -->
+<div class="section-card face" id="face">
+  <h2>1.1 Face Verification — ResNet50 + Triplet Loss</h2>
+  <div style="margin-bottom:16px">
+    <span class="badge b-blue">Port 8004</span>
+    <span class="badge b-blue">PyTorch</span>
+    <span class="badge b-blue">FastAPI</span>
+    <span class="badge b-blue">ResNet50</span>
+    <span class="badge b-blue">128-D Embedding</span>
+  </div>
+
+  <h3>Overview</h3>
+  <p>The Face Verification service identifies the doctor by comparing facial embeddings in real-time during a teleconsultation. It uses <strong>ResNet50</strong> as the visual backbone pre-trained on ImageNet, fine-tuned with <strong>Triplet Loss</strong> to learn a discriminative 128-dimensional embedding space where faces of the same person cluster together and faces of different people are pushed apart.</p>
+
+  <h3>Architecture Diagram</h3>
+  <div class="diagram-box">
+    <div class="mermaid">flowchart TB
+    classDef inp fill:#0d2137,stroke:#1f6feb,color:#79c0ff
+    classDef proc fill:#161b22,stroke:#30363d,color:#c9d1d9
+    classDef feat fill:#0a2114,stroke:#238636,color:#56d364
+    classDef emb fill:#1e1030,stroke:#6e40c9,color:#d2a8ff
+    classDef out fill:#1e1200,stroke:#9e6a03,color:#ffa657
+
+    IMG["Input Image\n224x224x3 RGB\nJPEG from canvas"]:::inp
+    NORM["ImageNet Normalization\nmean=[0.485,0.456,0.406]\nstd=[0.229,0.224,0.225]"]:::proc
+    C1["Conv1 7x7 stride2\n64 filters\nBN + ReLU + MaxPool"]:::proc
+    L1["ResNet Layer 1\n3x Bottleneck Blocks\n64-64-256 channels"]:::feat
+    L2["ResNet Layer 2\n4x Bottleneck Blocks\n128-128-512 channels"]:::feat
+    L3["ResNet Layer 3\n6x Bottleneck Blocks\n256-256-1024 channels"]:::feat
+    L4["ResNet Layer 4\n3x Bottleneck Blocks\n512-512-2048 channels"]:::feat
+    POOL["Global Average Pooling\n2048-D feature vector"]:::proc
+    FC["Fully Connected\n2048 -> 128\nLinear Layer"]:::emb
+    L2N["L2 Normalization\nunit-sphere projection\nnorm = 1.0"]:::emb
+    EMB["128-D Embedding Vector\nL2-normalized"]:::emb
+    COS["Cosine Similarity\nvs Enrolled Embedding\nthreshold >= 0.8096"]:::out
+    RES["Verification Result\nconfidence_score 0-1\nverified true/false"]:::out
+
+    IMG --> NORM --> C1 --> L1 --> L2 --> L3 --> L4 --> POOL --> FC --> L2N --> EMB --> COS --> RES
+    </div>
+  </div>
+
+  <h3>ResNet50 Bottleneck Block Detail</h3>
+  <p>Each bottleneck block in ResNet50 uses a 1×1 → 3×3 → 1×1 convolution structure with a residual skip connection. This allows very deep networks to train without vanishing gradients.</p>
+  <div class="code-block">ResNet50 Total Parameters: ~25.6 million
+Backbone (pre-trained ImageNet):   25.5M params  [FROZEN during early training]
+Custom FC Head (2048 → 128):         262,272 params [TRAINABLE from epoch 1]
+Total Trainable (fine-tune phase):   ALL ~25.6M params (epoch 10+)
+
+Layer breakdown:
+  conv1:          9,408 params
+  layer1 (3x):    212,992 params
+  layer2 (4x):    1,218,048 params
+  layer3 (6x):    7,098,368 params
+  layer4 (3x):    14,964,736 params
+  avgpool:        —
+  fc (2048→128):  262,272 params</div>
+
+  <h3>Training Configuration</h3>
+  <table>
+    <tr><th>Parameter</th><th>Value</th><th>Explanation</th></tr>
+    <tr><td>Backbone</td><td>ResNet50 (ImageNet)</td><td>Transfer learning base — reduces data needed by 10×</td></tr>
+    <tr><td>Embedding Dimension</td><td>128</td><td>Compact, efficient for cosine similarity</td></tr>
+    <tr><td>Loss Function</td><td>Triplet Loss (margin=0.2–0.5)</td><td>Learns relative identity distances</td></tr>
+    <tr><td>Optimizer</td><td>Adam</td><td>lr=0.001, weight_decay=1e-4</td></tr>
+    <tr><td>Batch Size</td><td>8 (inference) / 32 (training)</td><td>Limited by GPU memory for 224×224 images</td></tr>
+    <tr><td>Training Epochs</td><td>50–100 epochs</td><td>Early stopping on validation EER</td></tr>
+    <tr><td>Input Resolution</td><td>224×224 RGB</td><td>Standard ResNet input size</td></tr>
+    <tr><td>Training Strategy</td><td>2-phase: freeze backbone → full fine-tune</td><td>Phase 1 (ep 1–10): train FC only. Phase 2: train all</td></tr>
+    <tr><td>Verification Threshold</td><td>0.8096 (cosine similarity)</td><td>Calibrated on validation set for optimal EER</td></tr>
+    <tr><td>Enrollment Samples</td><td>3 face images</td><td>Average of 3 embeddings for robust profile</td></tr>
+    <tr><td>Dataset</td><td>LFW / VGGFace2 / Custom</td><td>LFW: 13K images, VGGFace2: 3.3M images</td></tr>
+  </table>
+
+  <h3>Triplet Loss — Training Mechanics</h3>
+  <div class="info-box">
+    <h4>📐 Triplet Loss Formula</h4>
+    <p><strong>L = max(0, d(Anchor, Positive) − d(Anchor, Negative) + margin)</strong></p>
+    <ul>
+      <li><strong>Anchor</strong>: Reference face image of the enrolled user</li>
+      <li><strong>Positive</strong>: Different image of the same person (same identity)</li>
+      <li><strong>Negative</strong>: Image of a different person (different identity)</li>
+      <li><strong>margin</strong>: 0.2–0.5 — forces separation between classes</li>
+      <li><strong>d()</strong>: L2 Euclidean distance in embedding space</li>
+    </ul>
+    <p>The model learns: "keep same-person embeddings close together, push different-person embeddings far apart."</p>
+  </div>
+
+  <h3>Training Cycle — Step by Step</h3>
+  <div class="flow-step"><div class="step-num">1</div><div class="step-content"><h4>Data Loading &amp; Preprocessing</h4><p>Load face images → resize to 224×224 → apply ImageNet normalization. Augment with random flip, brightness ±20%, rotation ±15°.</p></div></div>
+  <div class="flow-step"><div class="step-num">2</div><div class="step-content"><h4>Triplet Mining</h4><p>For each batch: select (Anchor, Positive, Negative) triplets. Use <em>hard negative mining</em> — find the hardest negatives (closest non-matching face) to accelerate convergence.</p></div></div>
+  <div class="flow-step"><div class="step-num">3</div><div class="step-content"><h4>Forward Pass</h4><p>Pass Anchor, Positive, Negative through ResNet50 backbone → FC → L2-normalize. Produces three 128-D unit vectors.</p></div></div>
+  <div class="flow-step"><div class="step-num">4</div><div class="step-content"><h4>Loss Computation</h4><p>Compute Triplet Loss. If loss > 0, model has room to improve. Semi-hard triplets are preferred in early epochs; hard triplets later.</p></div></div>
+  <div class="flow-step"><div class="step-num">5</div><div class="step-content"><h4>Backpropagation &amp; Update</h4><p>Adam optimizer computes gradients through the entire network. Cosine LR scheduler reduces lr each epoch. Gradient clipping at 1.0 prevents exploding gradients.</p></div></div>
+  <div class="flow-step"><div class="step-num">6</div><div class="step-content"><h4>Validation &amp; Checkpoint</h4><p>Every 5 epochs: compute EER on held-out pairs. Save checkpoint if EER improves. Early stopping if no improvement for 15 epochs.</p></div></div>
+  <div class="flow-step"><div class="step-num">7</div><div class="step-content"><h4>Threshold Calibration</h4><p>After training: sweep cosine similarity thresholds from 0.6–0.95. Select threshold that minimises FAR + FRR intersection (EER point). Result: 0.8096.</p></div></div>
+
+  <div class="metric-grid">
+    <div class="metric-card"><span class="metric-val">94–97%</span><span class="metric-lbl">Accuracy</span></div>
+    <div class="metric-card"><span class="metric-val">&lt;2%</span><span class="metric-lbl">FAR (False Accept)</span></div>
+    <div class="metric-card"><span class="metric-val">&lt;5%</span><span class="metric-lbl">FRR (False Reject)</span></div>
+    <div class="metric-card"><span class="metric-val">2–4%</span><span class="metric-lbl">EER</span></div>
+    <div class="metric-card"><span class="metric-val">~40ms</span><span class="metric-lbl">Inference Latency</span></div>
+    <div class="metric-card"><span class="metric-val">0.8096</span><span class="metric-lbl">Cosine Threshold</span></div>
+  </div>
+</div>
+
+<!-- ─────────────────── 1.2 VOICEPRINT ANALYSIS ─────────────────── -->
+<div class="section-card voice" id="voice">
+  <h2>1.2 Voiceprint Analysis — ECAPA-TDNN (SpeechBrain)</h2>
+  <div style="margin-bottom:16px">
+    <span class="badge b-green">Port 8001</span>
+    <span class="badge b-green">SpeechBrain</span>
+    <span class="badge b-green">PyTorch</span>
+    <span class="badge b-green">ECAPA-TDNN</span>
+    <span class="badge b-green">192-D Embedding</span>
+  </div>
+
+  <h3>Overview</h3>
+  <p>The Voiceprint Analysis service uses <strong>ECAPA-TDNN</strong> (Emphasized Channel Attention, Propagation, and Aggregation Time Delay Neural Network), the state-of-the-art architecture for speaker verification. The pre-trained model is sourced from <strong>SpeechBrain</strong>, trained on VoxCeleb1+2 (over 1 million utterances from 7,000+ speakers). It produces 192-dimensional speaker embeddings from 2.5-second audio windows.</p>
+
+  <h3>Architecture Diagram</h3>
+  <div class="diagram-box">
+    <div class="mermaid">flowchart TB
+    classDef inp fill:#0a2114,stroke:#238636,color:#56d364
+    classDef proc fill:#161b22,stroke:#30363d,color:#c9d1d9
+    classDef attn fill:#1e1030,stroke:#6e40c9,color:#d2a8ff
+    classDef pool fill:#1e1200,stroke:#9e6a03,color:#ffa657
+    classDef out fill:#0d2137,stroke:#1f6feb,color:#79c0ff
+
+    WAV["Raw Audio Input\nWAV 16kHz mono\n5s clip from browser"]:::inp
+    VAD["Voice Activity Detection\nEnergy threshold 0.001\nFilter silence segments"]:::proc
+    WIN["Sliding Window Segmentation\n2.5s windows 50% overlap\nMultiple segments per clip"]:::proc
+    MEL["Log Mel-Filterbank\n80 frequency bins\nFFT 25ms window 10ms hop"]:::proc
+    NORM1["Feature Normalization\nMean-Variance normalization\nper utterance"]:::proc
+    CONV1["Conv1D Block 1\n1024 channels kernel=5 dilation=1\nSE-Res2Net Attention"]:::attn
+    CONV2["Conv1D Block 2\n1024 channels kernel=3 dilation=2\nSE-Res2Net Attention"]:::attn
+    CONV3["Conv1D Block 3\n1024 channels kernel=3 dilation=3\nSE-Res2Net Attention"]:::attn
+    CONV4["Conv1D Block 4\n1024 channels kernel=3 dilation=4\nSE-Res2Net Attention"]:::attn
+    CONV5["Conv1D Block 5\n3072 channels kernel=1 dilation=1\nChannel Aggregation"]:::attn
+    ASP["Attentive Statistics Pooling\nLearned attention weights\nMean + Std concatenated"]:::pool
+    FC1["FC Layer 1\n3072 -> 192\nLinear + BatchNorm + ReLU"]:::pool
+    L2N["L2 Normalization\nUnit sphere projection"]:::pool
+    EMB["192-D Speaker Embedding\nL2-normalized per segment"]:::out
+    AGG["Embedding Aggregation\nAverage across windows\nFinal speaker vector"]:::out
+    COS["Cosine Similarity\nvs Enrolled Embedding\nthreshold >= 0.65"]:::out
+    ANTI["Anti-Spoofing Check\nASVspoof 2021 model\nReplay+Synthetic detect"]:::out
+    RES["Verification Result\nconfidence_score 0-1\nverified true/false"]:::out
+
+    WAV --> VAD --> WIN --> MEL --> NORM1
+    NORM1 --> CONV1 --> CONV2 --> CONV3 --> CONV4 --> CONV5
+    CONV5 --> ASP --> FC1 --> L2N --> EMB --> AGG --> COS
+    AGG --> ANTI
+    COS --> RES
+    ANTI --> RES
+    </div>
+  </div>
+
+  <h3>SE-Res2Net Attention — The Core Innovation</h3>
+  <div class="info-box">
+    <h4>🔬 Squeeze-and-Excitation + Res2Net Block</h4>
+    <p>Each ECAPA-TDNN block uses a hybrid of two attention mechanisms:</p>
+    <ul>
+      <li><strong>Res2Net</strong>: Hierarchical multi-scale feature extraction within a single block. Features are split into groups that process at different resolutions, then concatenated.</li>
+      <li><strong>SE (Squeeze-and-Excitation)</strong>: Channel-wise attention. Global average pooling → FC → Sigmoid → element-wise multiplication. Tells the network <em>which frequency channels matter most</em> for this speaker.</li>
+    </ul>
+    <p>Result: ECAPA-TDNN captures both <em>local spectral patterns</em> and <em>long-range temporal context</em> — essential for speaker identity.</p>
+  </div>
+
+  <h3>Training Configuration</h3>
+  <table>
+    <tr><th>Parameter</th><th>Value</th><th>Explanation</th></tr>
+    <tr><td>Pre-trained Source</td><td>speechbrain/spkrec-ecapa-voxceleb</td><td>HuggingFace Hub — VoxCeleb1+2 trained</td></tr>
+    <tr><td>Embedding Dimension</td><td>192-D</td><td>Richer speaker representation than 128-D</td></tr>
+    <tr><td>Sample Rate</td><td>16,000 Hz</td><td>Standard for speech processing</td></tr>
+    <tr><td>Window Duration</td><td>2.5 seconds</td><td>Captures enough phonetic variety</td></tr>
+    <tr><td>Window Overlap</td><td>50%</td><td>Sliding window for temporal averaging</td></tr>
+    <tr><td>Mel Filter Banks</td><td>80 bins</td><td>80-dim log-Mel spectrogram per frame</td></tr>
+    <tr><td>Conv Channels</td><td>[1024, 1024, 1024, 1024, 3072]</td><td>5 Conv1D blocks with increasing capacity</td></tr>
+    <tr><td>Training Epochs</td><td>50 epochs (fine-tune)</td><td>Early stopping patience = 10</td></tr>
+    <tr><td>Batch Size</td><td>32</td><td>Each item = one 2.5s audio segment</td></tr>
+    <tr><td>Learning Rate</td><td>0.0001 (Adam)</td><td>Low lr for fine-tuning pre-trained model</td></tr>
+    <tr><td>Dataset</td><td>VoxCeleb1 (dev+test)</td><td>1,251 speakers, 153,516 utterances</td></tr>
+    <tr><td>Verification Threshold</td><td>0.65 cosine similarity</td><td>Lower than face — voice is noisier signal</td></tr>
+    <tr><td>Anti-Spoofing</td><td>ASVspoof 2021 (lightweight CNN)</td><td>3 Conv2D blocks, detects replay+synthetic</td></tr>
+  </table>
+
+  <h3>Audio Preprocessing Pipeline</h3>
+  <div class="flow-step"><div class="step-num">1</div><div class="step-content"><h4>Browser Recording</h4><p>getUserMedia({audio}) → MediaRecorder (WebM/Opus) → 5-second clip. AudioContext.decodeAudioData() → PCM float32 → WAV (16-bit, 16kHz, mono) with custom WAV header writer.</p></div></div>
+  <div class="flow-step"><div class="step-num">2</div><div class="step-content"><h4>Voice Activity Detection (VAD)</h4><p>Energy-based VAD: RMS energy of each 25ms frame computed. Frames below threshold (0.001 energy) discarded. Ensures model only processes actual speech, not silence or background noise.</p></div></div>
+  <div class="flow-step"><div class="step-num">3</div><div class="step-content"><h4>Segmentation</h4><p>Audio split into 2.5-second windows with 50% overlap (1.25s step). Each window processed independently by ECAPA-TDNN, then embeddings averaged for final result.</p></div></div>
+  <div class="flow-step"><div class="step-num">4</div><div class="step-content"><h4>Log Mel-Filterbank Extraction</h4><p>25ms Hamming-windowed FFT → 80 triangular Mel filter banks → log compression. This mimics human auditory perception — the critical features for speaker identity.</p></div></div>
+  <div class="flow-step"><div class="step-num">5</div><div class="step-content"><h4>ECAPA-TDNN Inference</h4><p>5 Conv1D blocks with SE-Res2Net attention → Attentive Statistics Pooling → 192-D embedding. Total: ~14.8M parameters. Inference: ~185ms per 5s clip (CPU).</p></div></div>
+
+  <div class="metric-grid">
+    <div class="metric-card"><span class="metric-val">95–98%</span><span class="metric-lbl">Accuracy</span></div>
+    <div class="metric-card"><span class="metric-val">&lt;2%</span><span class="metric-lbl">FAR</span></div>
+    <div class="metric-card"><span class="metric-val">&lt;5%</span><span class="metric-lbl">FRR</span></div>
+    <div class="metric-card"><span class="metric-val">&lt;3%</span><span class="metric-lbl">EER</span></div>
+    <div class="metric-card"><span class="metric-val">~185ms</span><span class="metric-lbl">Inference Latency</span></div>
+    <div class="metric-card"><span class="metric-val">0.65</span><span class="metric-lbl">Cosine Threshold</span></div>
+  </div>
+</div>
+
+<!-- ─────────────────── 1.3 KEYSTROKE DYNAMICS ─────────────────── -->
+<div class="section-card keystroke" id="keystroke">
+  <h2>1.3 Keystroke Dynamics — Deep MLP + Triplet Loss</h2>
+  <div style="margin-bottom:16px">
+    <span class="badge b-purple">Port 8002</span>
+    <span class="badge b-purple">PyTorch</span>
+    <span class="badge b-purple">FastAPI</span>
+    <span class="badge b-purple">Deep MLP</span>
+    <span class="badge b-purple">38-D Features → 128-D Embedding</span>
+  </div>
+
+  <h3>Overview</h3>
+  <p>The Keystroke Dynamics service authenticates the doctor by analysing their unique typing rhythm. It captures three timing features — <strong>Hold time (H)</strong>, <strong>Down-Down time (DD)</strong>, and <strong>Up-Down time (UD)</strong> — computes statistical aggregates, and feeds a 38-dimensional feature vector into a Deep MLP that outputs a 128-D embedding for cosine similarity comparison.</p>
+
+  <h3>Feature Engineering — 38-Dimensional Input Vector</h3>
+  <div class="info-box">
+    <h4>⌨️ Raw Timing Features (31 values)</h4>
+    <ul>
+      <li><strong>Hold Time (H)</strong>: Duration key is held down = keyUp.timestamp − keyDown.timestamp (seconds)</li>
+      <li><strong>Down-Down (DD)</strong>: Time between consecutive key presses = nextKeyDown − prevKeyDown</li>
+      <li><strong>Up-Down (UD)</strong>: Time between key release and next press = nextKeyDown − prevKeyUp</li>
+    </ul>
+    <h4>📊 Statistical Features (7 values)</h4>
+    <p>Computed over the 31 timing values: <strong>mean, std, median, min, max, Q1 (25th percentile), Q3 (75th percentile)</strong>. Pad with zeros if fewer than 31 events captured. Total: 31 + 7 = <strong>38-D feature vector</strong>.</p>
+  </div>
+
+  <h3>Architecture Diagram</h3>
+  <div class="diagram-box">
+    <div class="mermaid">flowchart LR
+    classDef inp fill:#1e1030,stroke:#6e40c9,color:#d2a8ff
+    classDef layer fill:#161b22,stroke:#30363d,color:#c9d1d9
+    classDef emb fill:#0a2114,stroke:#238636,color:#56d364
+    classDef out fill:#0d2137,stroke:#1f6feb,color:#79c0ff
+
+    IN["Input Layer\n38 features\nHold+DD+UD+Stats"]:::inp
+    D1["Dense Layer 1\n38 -> 256\nLinear+BatchNorm1D+ReLU+Dropout(0.3)"]:::layer
+    D2["Dense Layer 2\n256 -> 512\nLinear+BatchNorm1D+ReLU+Dropout(0.3)"]:::layer
+    D3["Dense Layer 3\n512 -> 256\nLinear+BatchNorm1D+ReLU+Dropout(0.3)"]:::layer
+    D4["Dense Layer 4\n256 -> 128\nLinear+BatchNorm1D+ReLU+Dropout(0.3)"]:::layer
+    EMB["Embedding Layer\n128 -> 128\nLinear (no activation)"]:::emb
+    L2N["L2 Normalization\nunit-sphere projection"]:::emb
+    OUT["128-D Embedding\nBehavioral fingerprint"]:::emb
+    ISO["IsolationForest\nAnomaly Detection\nBot/Spoof filter"]:::out
+    COS["Cosine Similarity\nvs Enrolled Profile\nThreshold optimized"]:::out
+    RES["Verification Result\nconfidence 0-1\nverified bool"]:::out
+
+    IN --> D1 --> D2 --> D3 --> D4 --> EMB --> L2N --> OUT --> COS --> RES
+    OUT --> ISO --> RES
+    </div>
+  </div>
+
+  <h3>Training Configuration</h3>
+  <table>
+    <tr><th>Parameter</th><th>Value</th><th>Explanation</th></tr>
+    <tr><td>Input Dimension</td><td>38</td><td>31 timing + 7 statistical features</td></tr>
+    <tr><td>Hidden Dimensions</td><td>[256, 512, 256, 128]</td><td>Expand then compress — learns hierarchical patterns</td></tr>
+    <tr><td>Embedding Dimension</td><td>128-D</td><td>Compact behavioral fingerprint</td></tr>
+    <tr><td>Loss Function</td><td>Triplet Loss (margin=0.2)</td><td>Small margin — keystroke features cluster tightly</td></tr>
+    <tr><td>Hard Mining</td><td>Enabled</td><td>Selects hardest negatives each batch for fast convergence</td></tr>
+    <tr><td>Optimizer</td><td>Adam</td><td>lr=0.0005, weight_decay=1e-5</td></tr>
+    <tr><td>LR Scheduler</td><td>Cosine Annealing</td><td>Smoothly reduces lr from 0.0005 → 0 over epochs</td></tr>
+    <tr><td>Batch Size</td><td>64</td><td>Larger batch = more triplet combinations per step</td></tr>
+    <tr><td>Training Epochs</td><td>150 epochs</td><td>Early stopping patience = 40 epochs</td></tr>
+    <tr><td>Data Split</td><td>60% train / 20% val / 20% test</td><td>Standard split for behavioral biometrics</td></tr>
+    <tr><td>Augmentation</td><td>Gaussian noise ±0.02</td><td>Simulates natural typing variation</td></tr>
+    <tr><td>Dataset</td><td>DSL StrongPassword</td><td>51 users, password typing sessions, ~40K samples</td></tr>
+    <tr><td>Anomaly Detector</td><td>IsolationForest</td><td>100 estimators, contamination=0.1, detects bots</td></tr>
+    <tr><td>Dropout Rate</td><td>0.3 per layer</td><td>Prevents overfitting on small behavioral dataset</td></tr>
+  </table>
+
+  <h3>Training Cycle — 150 Epochs Breakdown</h3>
+  <table>
+    <tr><th>Epoch Range</th><th>Phase</th><th>Expected Behavior</th></tr>
+    <tr><td>1–20</td><td>Warm-up</td><td>High loss, model learning basic feature relationships. Loss decreases sharply.</td></tr>
+    <tr><td>21–60</td><td>Main Training</td><td>Triplet loss stabilizes. EER drops from ~25% to ~8%. Hard mining starts finding useful negatives.</td></tr>
+    <tr><td>61–100</td><td>Refinement</td><td>Embeddings tighten. LR decreasing via cosine schedule. EER approaches ~4%.</td></tr>
+    <tr><td>101–150</td><td>Fine-tuning</td><td>Very small loss improvements. Early stopping may trigger around epoch 120. Final EER ~3.9%.</td></tr>
+  </table>
+
+  <div class="metric-grid">
+    <div class="metric-card"><span class="metric-val">96.20%</span><span class="metric-lbl">Accuracy</span></div>
+    <div class="metric-card"><span class="metric-val">0.39%</span><span class="metric-lbl">FAR</span></div>
+    <div class="metric-card"><span class="metric-val">7.48%</span><span class="metric-lbl">FRR</span></div>
+    <div class="metric-card"><span class="metric-val">~3.9%</span><span class="metric-lbl">EER</span></div>
+    <div class="metric-card"><span class="metric-val">~8ms</span><span class="metric-lbl">Inference Latency</span></div>
+    <div class="metric-card"><span class="metric-val">150</span><span class="metric-lbl">Training Epochs</span></div>
+  </div>
+</div>
+
+<!-- ─────────────────── 1.4 MOUSE MOVEMENT ─────────────────── -->
+<div class="section-card mouse" id="mouse">
+  <h2>1.4 Mouse Movement Analysis — Siamese MLP + Hard Triplet Mining</h2>
+  <div style="margin-bottom:16px">
+    <span class="badge b-orange">Port 8003</span>
+    <span class="badge b-orange">PyTorch</span>
+    <span class="badge b-orange">FastAPI</span>
+    <span class="badge b-orange">Siamese MLP</span>
+    <span class="badge b-orange">128-D Embedding</span>
+  </div>
+
+  <h3>Overview</h3>
+  <p>Mouse Movement Analysis captures the doctor's unique cursor dynamics — velocity profiles, acceleration, curvature, and click patterns — and uses a <strong>Siamese Neural Network with shared weights</strong> to learn whether two sequences belong to the same person. Hard Triplet Mining with a larger margin (2.0) ensures strong class separation, critical because mouse behavior is more variable than keystroke timing.</p>
+
+  <h3>Feature Extraction from Mouse Events</h3>
+  <div class="info-box">
+    <h4>🖱️ Raw Events Captured (minimum 20 per sample)</h4>
+    <p>Each event: <code>{ timestamp, x, y, button, state }</code> — captured at every mousemove and click.</p>
+    <ul>
+      <li><strong>Velocity</strong>: Euclidean distance / time delta between consecutive points (pixels/sec)</li>
+      <li><strong>Acceleration</strong>: Rate of velocity change (pixels/sec²)</li>
+      <li><strong>Curvature</strong>: Angular change in direction between three consecutive points (radians)</li>
+      <li><strong>Angle</strong>: Direction of movement (atan2 of dy/dx)</li>
+      <li><strong>Click patterns</strong>: Frequency, position distribution, button preference (Left/Right/Middle)</li>
+      <li><strong>Statistical aggregates</strong>: Mean, std, min, max, percentiles over all computed features</li>
+    </ul>
+  </div>
+
+  <h3>Architecture Diagram</h3>
+  <div class="diagram-box">
+    <div class="mermaid">flowchart LR
+    classDef inp fill:#1e1200,stroke:#9e6a03,color:#ffa657
+    classDef layer fill:#161b22,stroke:#30363d,color:#c9d1d9
+    classDef emb fill:#0a2114,stroke:#238636,color:#56d364
+    classDef trip fill:#2d0f0f,stroke:#da3633,color:#f85149
+    classDef out fill:#0d2137,stroke:#1f6feb,color:#79c0ff
+
+    IN["Mouse Events Array\nx y t button state\nmin 20 events per sample"]:::inp
+    FE["Feature Extraction\nvelocity accel curvature\nangle click patterns\nstatistical aggregates"]:::inp
+    FLAT["Flattened Feature Vector\nfixed-length representation\npadded/truncated"]:::inp
+    D1["Shared Encoder Layer 1\nN -> 256\nLinear+BatchNorm1D+ReLU+Dropout(0.3)"]:::layer
+    D2["Shared Encoder Layer 2\n256 -> 512\nLinear+BatchNorm1D+ReLU+Dropout(0.3)"]:::layer
+    D3["Shared Encoder Layer 3\n512 -> 512\nLinear+BatchNorm1D+ReLU+Dropout(0.3)"]:::layer
+    D4["Shared Encoder Layer 4\n512 -> 256\nLinear+BatchNorm1D+ReLU+Dropout(0.3)"]:::layer
+    D5["Shared Encoder Layer 5\n256 -> 128\nLinear (no activation)"]:::layer
+    L2N["L2 Normalization"]:::emb
+    OUT["128-D Behavioral Embedding\nShared weights for Anchor+Pos+Neg"]:::emb
+    HM["Hard Triplet Mining\nmargin=2.0\nFind hardest negatives in batch"]:::trip
+    TL["Triplet Loss\nL=max(0, d_pos - d_neg + 2.0)\nEuclidean distance"]:::trip
+    ISO["IsolationForest\n100 estimators\nBot/RDP spoof detection"]:::out
+    COS["Cosine Similarity\nvs Enrolled Profile\nEER 7-9%"]:::out
+    RES["Verification Result\nconfidence 0-1\nverified bool"]:::out
+
+    IN --> FE --> FLAT --> D1 --> D2 --> D3 --> D4 --> D5 --> L2N --> OUT
+    OUT --> HM --> TL
+    OUT --> COS --> RES
+    OUT --> ISO --> RES
+    </div>
+  </div>
+
+  <h3>Training Configuration</h3>
+  <table>
+    <tr><th>Parameter</th><th>Value</th><th>Explanation</th></tr>
+    <tr><td>Architecture</td><td>Siamese MLP (shared weights)</td><td>Same encoder processes Anchor, Positive, Negative</td></tr>
+    <tr><td>Hidden Dimensions</td><td>[256, 512, 512, 256, 128]</td><td>Wider network needed for richer mouse patterns</td></tr>
+    <tr><td>Embedding Dimension</td><td>128-D</td><td>Behavioral fingerprint space</td></tr>
+    <tr><td>Loss Function</td><td>Triplet Loss (margin=2.0)</td><td>Larger margin than keystroke — mouse is noisier</td></tr>
+    <tr><td>Triplet Mining</td><td>Hard Negative Mining</td><td>Hardest negatives create strongest learning signal</td></tr>
+    <tr><td>Optimizer</td><td>Adam</td><td>lr=0.0001, weight_decay=0.0001</td></tr>
+    <tr><td>LR Scheduler</td><td>Cosine Annealing</td><td>Gradual lr decay over 200 epochs</td></tr>
+    <tr><td>Batch Size</td><td>32</td><td>Smaller batch — more careful triplet mining</td></tr>
+    <tr><td>Training Epochs</td><td>200 epochs</td><td>Longer training needed — mouse behavior high variance</td></tr>
+    <tr><td>Early Stopping</td><td>Patience = 30 epochs</td><td>Stop if AUC doesn't improve for 30 epochs</td></tr>
+    <tr><td>Augmentation</td><td>Noise ±0.02, Time warp, Spatial jitter ±0.05px</td><td>Simulates natural mouse usage variation</td></tr>
+    <tr><td>Dataset</td><td>Balabit Mouse Challenge</td><td>10 users, 100 sessions each, ~5M mouse events</td></tr>
+    <tr><td>Dropout Rate</td><td>0.3</td><td>Critical — mouse data has high intra-user variance</td></tr>
+  </table>
+
+  <h3>Why Siamese Network vs Standard Classifier?</h3>
+  <div class="warning-box">
+    <h4>⚠️ Mouse Behavior Challenge</h4>
+    <p>Mouse behavior is highly context-dependent — the same person moves the mouse very differently when filling a form vs scrolling vs clicking buttons. A standard classifier would memorize contexts, not identity. A Siamese network learns <em>relative similarity</em> — "do these two sequences feel like the same person?" — which generalizes better to unseen mouse contexts during a teleconsultation.</p>
+  </div>
+
+  <div class="metric-grid">
+    <div class="metric-card"><span class="metric-val">85–90%</span><span class="metric-lbl">Accuracy</span></div>
+    <div class="metric-card"><span class="metric-val">&lt;5%</span><span class="metric-lbl">FAR</span></div>
+    <div class="metric-card"><span class="metric-val">&lt;12%</span><span class="metric-lbl">FRR</span></div>
+    <div class="metric-card"><span class="metric-val">7–9%</span><span class="metric-lbl">EER</span></div>
+    <div class="metric-card"><span class="metric-val">~15ms</span><span class="metric-lbl">Inference Latency</span></div>
+    <div class="metric-card"><span class="metric-val">200</span><span class="metric-lbl">Training Epochs</span></div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════ PART 2 ═══════════════════════════════════════ -->
+<div class="part-header" id="part2">
+  <h2>🔗 PART 2 — Meeting Environment: Component Integration &amp; Trust Score</h2>
+  <p>How all four biometric ML services connect during an active teleconsultation, how the overall Trust Score is computed, and how the Zero Trust lockout mechanism protects sessions.</p>
+</div>
+
+<!-- ─────────────────── 2.1 HOW 4 ML SERVICES CONNECT ─────────────────── -->
+<div class="section-card integration" id="connect">
+  <h2>2.1 How the 4 ML Services Connect in a Meeting Session</h2>
+
+  <h3>Service Topology</h3>
+  <p>Each ML service runs as an independent Python FastAPI microservice on its own port. The Node.js backend acts as a proxy — the frontend never calls ML services directly. All four services run in parallel during a meeting; each has its own capture interval tuned to the amount of data it needs.</p>
+
+  <table>
+    <tr><th>Service</th><th>Port</th><th>Capture Interval</th><th>Trigger</th><th>Minimum Data</th></tr>
+    <tr><td>Face Verification</td><td>8004</td><td>Every 5 seconds</td><td>Timer (faceIntervalRef)</td><td>1 JPEG frame 224×224</td></tr>
+    <tr><td>Voiceprint Analysis</td><td>8001</td><td>Every 20 seconds</td><td>Timer (voiceIntervalRef)</td><td>5-second WAV clip</td></tr>
+    <tr><td>Keystroke Dynamics</td><td>8002</td><td>Every 10 seconds</td><td>Timer (verificationInterval)</td><td>10 keystrokes minimum</td></tr>
+    <tr><td>Mouse Movement</td><td>8003</td><td>Every 10 seconds</td><td>Timer (verificationInterval)</td><td>20 mouse events minimum</td></tr>
+  </table>
+
+  <h3>Component Connection Diagram</h3>
+  <div class="diagram-box">
+    <div class="mermaid">flowchart TB
+    classDef browser fill:#0d2137,stroke:#1f6feb,color:#79c0ff
+    classDef backend fill:#161b22,stroke:#30363d,color:#c9d1d9
+    classDef ml fill:#0a2114,stroke:#238636,color:#56d364
+    classDef socket fill:#1e1030,stroke:#6e40c9,color:#d2a8ff
+    classDef trust fill:#2d0f0f,stroke:#da3633,color:#f85149
+
+    subgraph BROWSER["Browser (Doctor)"]
+      FC["FaceCapture\ncanvas 224x224\nevery 5s"]:::browser
+      VC["VoiceCapture\nMediaRecorder WAV\nevery 20s"]:::browser
+      KC["KeystrokeCapture\nkeydown/keyup events\nevery 10s"]:::browser
+      MC["MouseCapture\nmousemove/click events\nevery 10s"]:::browser
+    end
+
+    subgraph BACKEND["Node.js Backend :5000"]
+      BF["POST /api/verify/face"]:::backend
+      BV["POST /api/verify/voice"]:::backend
+      BK["POST /api/verify/keystroke"]:::backend
+      BM["POST /api/verify/mouse"]:::backend
+      PROXY["mlService.js\nHTTP Proxy Layer\nAxios calls"]:::backend
+      TRUST["Trust Score Engine\nWeighted Average\n+ Lockout Timer"]:::trust
+      SOCK["Socket.IO Server\nbiometric-update event\nbroadcast to session"]:::socket
+    end
+
+    subgraph MLSERVICES["Python FastAPI ML Services"]
+      ML1["Face Service :8004\nResNet50\n40ms inference"]:::ml
+      ML2["Voice Service :8001\nECAPA-TDNN\n185ms inference"]:::ml
+      ML3["Keystroke Service :8002\nDeep MLP\n8ms inference"]:::ml
+      ML4["Mouse Service :8003\nSiamese MLP\n15ms inference"]:::ml
+    end
+
+    subgraph PATIENT["Browser (Patient)"]
+      PUI["Trust Score Display\nPer-modality badges\nAlert indicators"]:::browser
+    end
+
+    FC -->|"multipart/form-data JPEG"| BF
+    VC -->|"multipart/form-data WAV"| BV
+    KC -->|"JSON array of events"| BK
+    MC -->|"JSON array of events"| BM
+
+    BF --> PROXY
+    BV --> PROXY
+    BK --> PROXY
+    BM --> PROXY
+
+    PROXY -->|HTTP POST| ML1
+    PROXY -->|HTTP POST| ML2
+    PROXY -->|HTTP POST| ML3
+    PROXY -->|HTTP POST| ML4
+
+    ML1 -->|"JSON confidence_score"| PROXY
+    ML2 -->|"JSON confidence_score"| PROXY
+    ML3 -->|"JSON confidence_score"| PROXY
+    ML4 -->|"JSON confidence_score"| PROXY
+
+    PROXY --> TRUST
+    TRUST -->|"Socket.IO emit"| SOCK
+    SOCK -->|"biometric-update event"| PATIENT
+    </div>
+  </div>
+
+  <h3>Capture Loop Implementation</h3>
+  <div class="info-box">
+    <h4>⏱️ Three Independent Timers</h4>
+    <ul>
+      <li><strong>faceIntervalRef</strong>: Fires every 5,000ms. Calls <code>faceCapture.captureFrame()</code> → POST to <code>/api/verify/face</code></li>
+      <li><strong>voiceIntervalRef</strong>: Fires every 20,000ms. Calls <code>voiceCaptureRef.recordClip(5000)</code> → POST to <code>/api/verify/voice</code></li>
+      <li><strong>verificationInterval</strong>: Fires every 10,000ms. Calls keystroke + mouse capture simultaneously → POST both endpoints</li>
+    </ul>
+    <p>All timers start only when <code>connectionStatus === 'connected'</code> (both peers joined). They are cleared on <code>componentWillUnmount</code> to prevent memory leaks.</p>
+  </div>
+</div>
+
+<!-- ─────────────────── 2.2 TRUST SCORE CALCULATION ─────────────────── -->
+<div class="section-card integration" id="trustcalc">
+  <h2>2.2 Trust Score Calculation Algorithm</h2>
+
+  <h3>Formula</h3>
+  <div class="info-box">
+    <h4>📐 Weighted Average Trust Score</h4>
+    <div class="code-block">// From Client/src/pages/Meeting.jsx
+const computeTrustScore = (face, voice, keystroke, mouse) => {
+  const w = { face: 0.35, voice: 0.30, keystroke: 0.20, mouse: 0.15 };
+  let total = 0, wSum = 0;
+
+  if (face      !== null) { total += face      * w.face;      wSum += w.face;      }
+  if (voice     !== null) { total += voice     * w.voice;     wSum += w.voice;     }
+  if (keystroke !== null) { total += keystroke * w.keystroke; wSum += w.keystroke; }
+  if (mouse     !== null) { total += mouse     * w.mouse;     wSum += w.mouse;     }
+
+  // Normalize by actual weight sum (handles null modalities)
+  const normalized = wSum > 0 ? (total / wSum) : 1.0;
+  return Math.round(normalized * 100);  // Returns 0–100
+};</div>
+    <h4>💡 Weight Rationale</h4>
+    <ul>
+      <li><strong>Face (35%)</strong>: Most reliable biometric in a video call context. Direct visual identity signal.</li>
+      <li><strong>Voice (30%)</strong>: Second most reliable. Unique vocal tract characteristics. Harder to spoof than behavior.</li>
+      <li><strong>Keystroke (20%)</strong>: Strong typing rhythm signal but depends on active chat use.</li>
+      <li><strong>Mouse (15%)</strong>: Highest variance modality. Complements other signals.</li>
+    </ul>
+  </div>
+
+  <h3>Null Handling Strategy</h3>
+  <p>At session start, only captured modalities contribute to the score. Keystroke defaults to <strong>0.5 (50%)</strong> when chat is closed (no typing data). All other modalities start as <code>null</code> until first verification completes. The weight sum normalisation ensures the score is always meaningful even with only 1–2 active modalities.</p>
+
+  <table>
+    <tr><th>Scenario</th><th>Active Weights</th><th>Example Scores → Trust</th></tr>
+    <tr><td>Only face verified (session start, 5s)</td><td>0.35 / 0.35 = 100%</td><td>face=0.9 → Trust 90</td></tr>
+    <tr><td>Face + Voice (after 20s)</td><td>0.65 / 0.65 = 100%</td><td>face=0.9, voice=0.85 → Trust 88</td></tr>
+    <tr><td>All four active</td><td>1.00 / 1.00 = 100%</td><td>0.9×0.35+0.85×0.30+0.96×0.20+0.80×0.15 → Trust 88</td></tr>
+    <tr><td>Intruder detected (all low)</td><td>1.00</td><td>face=0.2, voice=0.3, keystroke=0.4, mouse=0.3 → Trust 28</td></tr>
+  </table>
+
+  <h3>Trust Score Update Sequence</h3>
+  <div class="diagram-box">
+    <div class="mermaid">sequenceDiagram
+    participant BC as Browser Capture
+    participant BE as Node.js Backend
+    participant ML as ML Service
+    participant TS as Trust Engine
+    participant UI as Doctor UI
+    participant PT as Patient UI
+
+    BC->>BE: POST /api/verify/face {image}
+    BE->>ML: POST http://localhost:8004/verify {image}
+    ML-->>BE: {verified:true, confidence:0.91}
+    BE->>TS: updateScore(face, 0.91)
+    TS->>TS: computeTrustScore(0.91, null, 0.5, null)
+    Note over TS: Trust = round(0.91*0.35 / 0.35 * 100) = 91
+    TS->>BE: emit biometric-update
+    BE->>UI: socket biometric-update {face:0.91, trust:91}
+    BE->>PT: socket doctor-biometric-update {face:0.91, trust:91}
+    UI->>UI: setFaceConf(0.91) + setTrustScore(91)
+    PT->>PT: setDoctorScores({face:0.91})
+    </div>
+  </div>
+</div>
+
+<!-- ─────────────────── 2.3 ACCURACY METRICS ─────────────────── -->
+<div class="section-card integration" id="accuracy">
+  <h2>2.3 Product Accuracy &amp; Performance Metrics</h2>
+
+  <table>
+    <tr><th>Modality</th><th>Accuracy</th><th>FAR</th><th>FRR</th><th>EER</th><th>Threshold</th><th>Inference</th><th>Interval</th></tr>
+    <tr><td>Face Verification</td><td>94–97%</td><td>&lt;2%</td><td>&lt;5%</td><td>2–4%</td><td>cosine ≥ 0.8096</td><td>~40ms</td><td>5s</td></tr>
+    <tr><td>Voiceprint</td><td>95–98%</td><td>&lt;2%</td><td>&lt;5%</td><td>&lt;3%</td><td>cosine ≥ 0.65</td><td>~185ms</td><td>20s</td></tr>
+    <tr><td>Keystroke</td><td>96.20%</td><td>0.39%</td><td>7.48%</td><td>~3.9%</td><td>triplet distance</td><td>~8ms</td><td>10s</td></tr>
+    <tr><td>Mouse Movement</td><td>85–90%</td><td>&lt;5%</td><td>&lt;12%</td><td>7–9%</td><td>EER point</td><td>~15ms</td><td>10s</td></tr>
+    <tr><td><strong>Combined System</strong></td><td><strong>97–99%</strong></td><td><strong>&lt;0.5%</strong></td><td><strong>&lt;3%</strong></td><td><strong>&lt;2%</strong></td><td>Trust Score ≥ 50</td><td>&lt;250ms</td><td>5s</td></tr>
+  </table>
+
+  <div class="highlight-box">
+    <h4>✅ Why Combined Accuracy Exceeds Individual Modalities</h4>
+    <p>The probability that an impostor simultaneously fools all four independent biometric systems is multiplicative: <strong>FAR_combined ≈ FAR_face × FAR_voice × FAR_keystroke × FAR_mouse ≈ 0.02 × 0.02 × 0.004 × 0.05 = 0.00000008 (0.000008%)</strong>. This is why multi-modal fusion is orders of magnitude more secure than any single biometric.</p>
+  </div>
+</div>
+
+<!-- ─────────────────── 2.4 LOCKOUT MECHANISM ─────────────────── -->
+<div class="section-card integration" id="lockout">
+  <h2>2.4 Zero Trust Lockout Mechanism</h2>
+
+  <h3>Lockout Algorithm</h3>
+  <div class="code-block">// Simplified from Meeting.jsx — runs every time trustScore updates
+useEffect(() => {
+  if (isLockedOutRef.current || isDoctor === false) return;
+
+  if (trustScore < 50) {
+    // Start or continue low-trust timer
+    if (!lowTrustStartRef.current) lowTrustStartRef.current = Date.now();
+    const elapsed = Date.now() - lowTrustStartRef.current;
+
+    if (elapsed >= 60_000) {           // 60 continuous seconds below 50%
+      triggerLockout();                // Show lockout overlay
+    }
+  } else {
+    lowTrustStartRef.current = null;   // Reset timer if trust recovers
+  }
+}, [trustScore]);</div>
+
+  <h3>Lockout Flow Diagram</h3>
+  <div class="diagram-box">
+    <div class="mermaid">flowchart TD
+    classDef normal fill:#0a2114,stroke:#238636,color:#56d364
+    classDef warn fill:#1e1200,stroke:#9e6a03,color:#ffa657
+    classDef lock fill:#2d0f0f,stroke:#da3633,color:#f85149
+    classDef recover fill:#0d2137,stroke:#1f6feb,color:#79c0ff
+
+    NORM["Trust Score Check\nevery score update"]:::normal
+    GT50{"Trust Score\n>= 50?"}
+    RESET["Reset Timer\nlowTrustStart = null"]:::normal
+    TIMER["Start/Continue\n60-second timer"]:::warn
+    ELAPSED{"60 seconds\nelapsed?"}
+    LOCKOUT["Trigger Lockout\nisLockedOut = true\nOverlay displayed"]:::lock
+    OTP["Step 1: OTP Email\nSend 6-digit code\nto registered email"]:::lock
+    VERIFY["Step 2: OTP Verify\n3 attempts allowed\n(API: /api/otp/verify)"]:::lock
+    SLIDE["Step 3: Slider Challenge\nDrag slider to unlock\nProves human presence"]:::lock
+    RESTORE["Session Restored\nisLockedOut = false\nTimer reset"]:::recover
+    FAIL["Max Attempts (3)\nSession Terminated\nNavigate to /dashboard"]:::lock
+
+    NORM --> GT50
+    GT50 -->|Yes| RESET
+    GT50 -->|No| TIMER
+    TIMER --> ELAPSED
+    ELAPSED -->|No| NORM
+    ELAPSED -->|Yes| LOCKOUT
+    LOCKOUT --> OTP --> VERIFY
+    VERIFY -->|Success| SLIDE
+    VERIFY -->|3 fails| FAIL
+    SLIDE -->|Complete| RESTORE
+    RESTORE --> NORM
+    </div>
+  </div>
+
+  <h3>Lockout Parameters</h3>
+  <table>
+    <tr><th>Parameter</th><th>Value</th><th>Source</th></tr>
+    <tr><td>Trust threshold</td><td>50 (out of 100)</td><td>Meeting.jsx hardcoded</td></tr>
+    <tr><td>Low-trust duration to lockout</td><td>60 seconds continuous</td><td>60_000ms in Meeting.jsx</td></tr>
+    <tr><td>OTP length</td><td>6 digits</td><td>otpController.js</td></tr>
+    <tr><td>OTP delivery</td><td>Email (SMTP via Nodemailer)</td><td>Backend email service</td></tr>
+    <tr><td>Max OTP attempts</td><td>3</td><td>Meeting.jsx lockoutOtpAttempts</td></tr>
+    <tr><td>Slider challenge</td><td>Must drag to 100%</td><td>Meeting.jsx lockoutSliderPos</td></tr>
+    <tr><td>Patient notification</td><td>Socket.IO doctor-locked-out event</td><td>Real-time via socket</td></tr>
+    <tr><td>Session termination on max fails</td><td>Navigates to /dashboard</td><td>navigate('/dashboard')</td></tr>
+  </table>
+</div>
+
+<!-- ═══════════════════════════════════════ PART 3 ═══════════════════════════════════════ -->
+<div class="part-header" id="part3">
+  <h2>⚡ PART 3 — End-to-End Data Flow with Timing &amp; Latency</h2>
+  <p>The complete journey of biometric data from browser capture through backend processing, ML inference, and back to the user interface — with precise timing analysis at every step.</p>
+</div>
+
+<div class="section-card dataflow" id="capture">
+  <h2>3.1 Step 1 — Browser Biometric Capture</h2>
+  <p>Everything starts in <strong><code>Client/src/utils/biometricCapture.js</code></strong>. Four capture classes run independently inside the Meeting component.</p>
+
+  <h3>FaceCapture</h3>
+  <div class="code-block">// FaceCapture.captureFrame() — runs every 5 seconds
+captureFrame() {
+  const canvas = document.createElement('canvas');
+  canvas.width = 224; canvas.height = 224;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(videoElement, 0, 0, 224, 224);  // Grab current video frame
+  return new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.9));
+  // Output: ~15–30 KB JPEG blob, ~2–5ms to create
+}</div>
+
+  <h3>VoiceCapture</h3>
+  <div class="code-block">// VoiceCapture.recordClip(5000) — records 5 seconds every 20s
+async recordClip(durationMs) {
+  const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  const recorder = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' });
+  // Collect chunks for durationMs, then stop
+  const blob = new Blob(chunks, { type: 'audio/webm' });
+  const pcm = await decodeAudioData(blob);          // AudioContext decode
+  const wav = encodeWAV(pcm, 16000);                // Custom WAV encoder (16kHz mono 16-bit)
+  return new Blob([wav], { type: 'audio/wav' });    // ~160 KB for 5s at 16kHz
+  // Total capture time: 5000ms (recording) + ~50ms (encode)
+}</div>
+
+  <h3>KeystrokeCapture</h3>
+  <div class="code-block">// Events buffered in memory, flushed every 10s
+addEventListener('keydown', e => events.push({ key:e.key, time:Date.now(), type:'down' }));
+addEventListener('keyup',   e => events.push({ key:e.key, time:Date.now(), type:'up' }));
+// getEvents() returns last N events and clears buffer
+// Feature extraction: hold times + DD/UD intervals + 7 stats → 38-D vector
+// Computation time: ~1ms</div>
+
+  <h3>MouseCapture</h3>
+  <div class="code-block">// Throttled at 50ms to avoid flooding (20 events/sec max)
+addEventListener('mousemove', throttle(e => events.push({ x, y, t, state:'move' }), 50));
+addEventListener('mousedown', e => events.push({ x, y, t, button, state:'down' }));
+addEventListener('mouseup',   e => events.push({ x, y, t, button, state:'up'   }));
+// getEvents() returns array for last 10s window (up to ~200 events)
+// Feature extraction: velocity, accel, curvature, angles, stats → computed in backend
+// Data size: ~10–15 KB JSON</div>
+
+  <div class="metric-grid">
+    <div class="metric-card"><span class="metric-val">2–5ms</span><span class="metric-lbl">Face Frame Capture</span></div>
+    <div class="metric-card"><span class="metric-val">5,050ms</span><span class="metric-lbl">Voice Clip (record+encode)</span></div>
+    <div class="metric-card"><span class="metric-val">&lt;1ms</span><span class="metric-lbl">Keystroke Feature Extract</span></div>
+    <div class="metric-card"><span class="metric-val">&lt;1ms</span><span class="metric-lbl">Mouse Event Serialise</span></div>
+  </div>
+</div>
+
+<div class="section-card dataflow" id="fe2be">
+  <h2>3.2 Step 2 — Frontend → Backend (REST API over HTTP/1.1)</h2>
+
+  <table>
+    <tr><th>Modality</th><th>Endpoint</th><th>Method</th><th>Payload Type</th><th>Payload Size</th><th>Network Latency (localhost)</th></tr>
+    <tr><td>Face</td><td>/api/verify/face</td><td>POST</td><td>multipart/form-data</td><td>15–30 KB JPEG</td><td>1–3ms</td></tr>
+    <tr><td>Voice</td><td>/api/verify/voice</td><td>POST</td><td>multipart/form-data</td><td>~160 KB WAV</td><td>2–5ms</td></tr>
+    <tr><td>Keystroke</td><td>/api/verify/keystroke</td><td>POST</td><td>application/json</td><td>~1 KB JSON</td><td>&lt;1ms</td></tr>
+    <tr><td>Mouse</td><td>/api/verify/mouse</td><td>POST</td><td>application/json</td><td>10–15 KB JSON</td><td>&lt;1ms</td></tr>
+  </table>
+
+  <p>Axios is used with a configured <code>baseURL</code> and <code>Authorization: Bearer &lt;JWT&gt;</code> header. The JWT is validated by the <code>authMiddleware</code> on every request before it reaches the controller.</p>
+
+  <h3>JWT Auth Middleware (Backend)</h3>
+  <div class="code-block">// Backend/middleware/authMiddleware.js
+const token = req.headers.authorization?.split(' ')[1];
+const decoded = jwt.verify(token, process.env.JWT_SECRET);
+req.user = decoded;  // userId, role attached to request
+// Overhead: ~0.5–1ms (crypto operation)</div>
+</div>
+
+<div class="section-card dataflow" id="be2ml">
+  <h2>3.3 Step 3 — Backend → ML Services (HTTP Proxy via mlService.js)</h2>
+  <p>The backend's <strong><code>Backend/services/mlService.js</code></strong> is the dedicated proxy layer. It forwards all biometric data from the Express controllers to the appropriate FastAPI service using Axios.</p>
+
+  <div class="code-block">// Backend/services/mlService.js (simplified)
+const ML_ENDPOINTS = {
+  face:      'http://localhost:8004',
+  voice:     'http://localhost:8001',
+  keystroke: 'http://localhost:8002',
+  mouse:     'http://localhost:8003',
+};
+
+async verifyFace(imageBuffer, userId) {
+  const form = new FormData();
+  form.append('file', imageBuffer, { filename:'frame.jpg', contentType:'image/jpeg' });
+  form.append('user_id', userId);
+  const response = await axios.post(`${ML_ENDPOINTS.face}/verify`, form, {
+    headers: form.getHeaders(),
+    timeout: 10000,   // 10s timeout
+  });
+  return response.data;  // { verified, confidence_score, distance }
+}
+
+async verifyVoice(audioBuffer, userId) {
+  const form = new FormData();
+  form.append('file', audioBuffer, { filename:'audio.wav', contentType:'audio/wav' });
+  form.append('user_id', userId);
+  return (await axios.post(`${ML_ENDPOINTS.voice}/verify`, form, { headers:form.getHeaders() })).data;
+}
+
+async verifyKeystroke(features, userId) {
+  return (await axios.post(`${ML_ENDPOINTS.keystroke}/verify`, { features, user_id: userId })).data;
+}
+
+async verifyMouse(events, userId) {
+  return (await axios.post(`${ML_ENDPOINTS.mouse}/verify`, { events, user_id: userId })).data;
+}</div>
+
+  <div class="info-box">
+    <h4>🔒 Why a Proxy Layer?</h4>
+    <ul>
+      <li><strong>Security</strong>: ML services are not publicly accessible. Only the backend can reach them (internal network).</li>
+      <li><strong>Auth enforcement</strong>: JWT validation happens before the proxy forwards — ML services don't need to implement auth.</li>
+      <li><strong>Error handling</strong>: The proxy catches ML service timeouts/errors and returns safe defaults (confidence=0.5) instead of crashing the session.</li>
+      <li><strong>Rate limiting</strong>: Backend can throttle requests to ML services to prevent overload.</li>
+    </ul>
+  </div>
+</div>
+
+<div class="section-card dataflow" id="ml2be">
+  <h2>3.4 Step 4 — ML Processing &amp; Response</h2>
+  <p>Each FastAPI service receives the request, runs model inference, and returns a standardised JSON response.</p>
+
+  <h3>FastAPI Request Handler Pattern</h3>
+  <div class="code-block">// Python FastAPI pattern (all 4 services follow this structure)
+@app.post("/verify")
+async def verify(file: UploadFile = File(...), user_id: str = Form(...)):
+    # 1. Load enrolled embedding from disk/DB
+    enrolled = load_embedding(user_id)                       # ~1–5ms (disk I/O)
+    if enrolled is None:
+        return {"verified": False, "confidence_score": 0.0}
+
+    # 2. Preprocess input
+    data = preprocess(await file.read())                     # Model-specific
+
+    # 3. Model inference (main cost)
+    embedding = model.encode(data)                           # GPU/CPU inference
+
+    # 4. Compute similarity
+    similarity = cosine_similarity(embedding, enrolled)      # ~0.1ms
+
+    # 5. Apply threshold
+    verified = bool(similarity >= THRESHOLD)
+    return {"verified": verified, "confidence_score": float(similarity),
+            "distance": float(1 - similarity)}</div>
+
+  <h3>Per-Service Processing Breakdown</h3>
+  <table>
+    <tr><th>Service</th><th>Preprocessing</th><th>Model Inference</th><th>Similarity Compute</th><th>Total</th></tr>
+    <tr><td>Face (:8004)</td><td>Decode JPEG → tensor → normalize (5ms)</td><td>ResNet50 forward pass (30ms)</td><td>Cosine sim 128-D (0.1ms)</td><td>~40ms</td></tr>
+    <tr><td>Voice (:8001)</td><td>WAV decode → VAD → Mel spectrogram (50ms)</td><td>ECAPA-TDNN 5 conv blocks (130ms)</td><td>Cosine sim 192-D (0.1ms)</td><td>~185ms</td></tr>
+    <tr><td>Keystroke (:8002)</td><td>JSON parse → feature vector (0.5ms)</td><td>Deep MLP 4 layers (6ms)</td><td>Cosine sim 128-D (0.1ms)</td><td>~8ms</td></tr>
+    <tr><td>Mouse (:8003)</td><td>Event parse → feature extract (5ms)</td><td>Siamese MLP 5 layers (8ms)</td><td>Cosine sim 128-D (0.1ms)</td><td>~15ms</td></tr>
+  </table>
+
+  <h3>Standardised ML Response</h3>
+  <div class="code-block">// JSON response from any ML service
+{
+  "verified": true,           // bool: threshold passed?
+  "confidence_score": 0.913,  // float 0–1: cosine similarity
+  "distance": 0.087,          // float: 1 - confidence (L2 or cosine dist)
+  "model_version": "1.0.0",   // string: for audit logging
+  "processing_time_ms": 38.4  // float: server-side inference time
+}</div>
+</div>
+
+<div class="section-card dataflow" id="be2fe">
+  <h2>3.5 Step 5 — Backend → Frontend (REST Response + Socket.IO)</h2>
+  <p>After getting the ML response, the backend controller does two things simultaneously: sends the HTTP response back to the calling fetch, AND broadcasts to all session participants via Socket.IO.</p>
+
+  <div class="code-block">// Backend/controllers/sessionController.js (simplified pattern)
+exports.verifyFace = async (req, res) => {
+  try {
+    const result = await mlService.verifyFace(req.file.buffer, req.user.userId);
+    // result = { verified, confidence_score, distance }
+
+    // 1. Emit real-time update to all session participants via Socket.IO
+    const io = req.app.get('io');
+    io.to(req.body.sessionId).emit('biometric-update', {
+      userId: req.user.userId,
+      modality: 'face',
+      confidence: result.confidence_score,
+      verified: result.verified,
+      timestamp: Date.now(),
+    });
+
+    // 2. Return HTTP response to caller
+    res.json({
+      success: true,
+      verified: result.verified,
+      confidence: result.confidence_score,
+    });
+
+  } catch (err) {
+    // Safe fallback — never crash the session on ML service error
+    res.json({ success: false, verified: false, confidence: 0.5 });
+  }
+};</div>
+
+  <h3>Socket.IO Events Used for Biometric Data</h3>
+  <table>
+    <tr><th>Event Name</th><th>Direction</th><th>Payload</th><th>Recipients</th></tr>
+    <tr><td>biometric-update</td><td>Server → Client</td><td>{userId, modality, confidence, verified, timestamp}</td><td>Doctor (self)</td></tr>
+    <tr><td>doctor-biometric-update</td><td>Server → Client</td><td>{face, voice, keystroke, mouse, trustScore}</td><td>Patient</td></tr>
+    <tr><td>doctor-locked-out</td><td>Server → Client</td><td>{sessionId, timestamp}</td><td>Patient</td></tr>
+    <tr><td>doctor-restored</td><td>Server → Client</td><td>{sessionId}</td><td>Patient</td></tr>
+    <tr><td>ice-candidate</td><td>Peer → Peer</td><td>{candidate, targetSocketId}</td><td>Other peer</td></tr>
+    <tr><td>offer / answer</td><td>Peer → Peer</td><td>SDP object</td><td>Other peer</td></tr>
+  </table>
+
+  <div class="info-box">
+    <h4>⚡ Why Socket.IO Instead of HTTP for Score Updates?</h4>
+    <p>HTTP responses go only to the requesting client (the doctor). But the <strong>patient also needs to see the doctor's trust score</strong> in real time. Socket.IO's room-based broadcasting allows the server to push updates to <em>all participants in a session room</em> simultaneously, with sub-millisecond overhead over the existing WebSocket connection.</p>
+  </div>
+</div>
+
+<div class="section-card dataflow" id="display">
+  <h2>3.6 Step 6 — Frontend Display &amp; UI Update</h2>
+  <p>When the biometric-update Socket.IO event arrives, React state is updated, which triggers a re-render of the trust score display and modality badges. All UI updates are non-blocking.</p>
+
+  <div class="code-block">// Meeting.jsx — Socket.IO listener for biometric updates
+socket.on('biometric-update', ({ modality, confidence }) => {
+  switch(modality) {
+    case 'face':      setFaceConf(confidence);      break;
+    case 'voice':     setVoiceConf(confidence);     break;
+    case 'keystroke': setKeystrokeConf(confidence); break;
+    case 'mouse':     setMouseConf(confidence);     break;
+  }
+  // trustScore re-computed by useMemo whenever any conf changes
+});
+
+// Trust score computed reactively
+const trustScore = useMemo(() =>
+  computeTrustScore(faceConf, voiceConf, keystrokeConf, mouseConf),
+  [faceConf, voiceConf, keystrokeConf, mouseConf]
+);
+
+// Lockout timer check runs in useEffect watching trustScore
+useEffect(() => {
+  if (trustScore < 50) {
+    if (!lowTrustStartRef.current) lowTrustStartRef.current = Date.now();
+    if (Date.now() - lowTrustStartRef.current >= 60_000) triggerLockout();
+  } else {
+    lowTrustStartRef.current = null;
+  }
+}, [trustScore]);</div>
+
+  <h3>UI Components That Update</h3>
+  <table>
+    <tr><th>Component</th><th>Data Source</th><th>Update Trigger</th><th>Visual</th></tr>
+    <tr><td>Trust Score Gauge</td><td>trustScore (0–100)</td><td>Any modality score changes</td><td>Circular progress + color (green/yellow/red)</td></tr>
+    <tr><td>Face Badge</td><td>faceConf (0–1 or null)</td><td>biometric-update face event</td><td>Shield icon + percentage + verified tick</td></tr>
+    <tr><td>Voice Badge</td><td>voiceConf (0–1 or null)</td><td>biometric-update voice event</td><td>Mic icon + percentage</td></tr>
+    <tr><td>Keystroke Badge</td><td>keystrokeConf (0–1)</td><td>biometric-update keystroke event</td><td>Keyboard icon + percentage</td></tr>
+    <tr><td>Mouse Badge</td><td>mouseConf (0–1 or null)</td><td>biometric-update mouse event</td><td>Activity icon + percentage</td></tr>
+    <tr><td>Alert List</td><td>alerts[]</td><td>Trust score drops below 60</td><td>Yellow warning toast + log entry</td></tr>
+    <tr><td>Lockout Overlay</td><td>isLockedOut bool</td><td>60s continuous low trust</td><td>Full-screen modal with OTP + slider</td></tr>
+    <tr><td>Patient View</td><td>doctorScores{}</td><td>doctor-biometric-update socket event</td><td>Read-only score display for patient</td></tr>
+  </table>
+</div>
+
+<!-- ─────────────────── 3.7 COMPLETE TIMING TABLE ─────────────────── -->
+<div class="section-card dataflow" id="timing">
+  <h2>3.7 Complete End-to-End Timing &amp; Latency Analysis</h2>
+
+  <h3>Full System Sequence Diagram</h3>
+  <div class="diagram-box">
+    <div class="mermaid">sequenceDiagram
+    participant BR as Browser (Doctor)
+    participant BK as Node.js Backend :5000
+    participant ML as ML Service (e.g. :8004)
+    participant PT as Browser (Patient)
+
+    Note over BR: t=0ms - FaceCapture timer fires
+    BR->>BR: canvas.drawImage(video) -> toBlob JPEG (3ms)
+    BR->>BK: POST /api/verify/face (JPEG 20KB) (2ms)
+    BK->>BK: JWT verify + multer parse (1ms)
+    BK->>ML: POST http://localhost:8004/verify (1ms)
+    ML->>ML: Decode JPEG + normalize (5ms)
+    ML->>ML: ResNet50 forward pass (30ms)
+    ML->>ML: Cosine similarity vs enrolled (0.1ms)
+    ML-->>BK: {verified:true, confidence:0.91} (1ms)
+    BK->>BK: computeTrustScore + emit socket (0.5ms)
+    BK-->>BR: HTTP 200 {success, confidence} (1ms)
+    BK->>PT: socket doctor-biometric-update (1ms)
+    BR->>BR: setFaceConf(0.91) -> React re-render (5ms)
+    PT->>PT: setDoctorScores({face:0.91}) (5ms)
+    Note over BR,PT: Total: ~55ms for face verification cycle
+    </div>
+  </div>
+
+  <h3>Per-Modality End-to-End Latency</h3>
+  <table>
+    <tr><th>Step</th><th>Face</th><th>Voice</th><th>Keystroke</th><th>Mouse</th></tr>
+    <tr><td>1. Capture / Encode</td><td>3ms</td><td>5,050ms</td><td>&lt;1ms</td><td>&lt;1ms</td></tr>
+    <tr><td>2. Frontend → Backend (HTTP)</td><td>2ms</td><td>4ms</td><td>&lt;1ms</td><td>1ms</td></tr>
+    <tr><td>3. Backend auth + parse</td><td>1ms</td><td>1ms</td><td>1ms</td><td>1ms</td></tr>
+    <tr><td>4. Backend → ML service</td><td>1ms</td><td>1ms</td><td>1ms</td><td>1ms</td></tr>
+    <tr><td>5. ML preprocessing</td><td>5ms</td><td>50ms</td><td>0.5ms</td><td>5ms</td></tr>
+    <tr><td>6. Model inference</td><td>30ms</td><td>130ms</td><td>6ms</td><td>8ms</td></tr>
+    <tr><td>7. Similarity compute</td><td>0.1ms</td><td>0.1ms</td><td>0.1ms</td><td>0.1ms</td></tr>
+    <tr><td>8. ML → Backend response</td><td>1ms</td><td>1ms</td><td>1ms</td><td>1ms</td></tr>
+    <tr><td>9. Trust score + Socket.IO emit</td><td>0.5ms</td><td>0.5ms</td><td>0.5ms</td><td>0.5ms</td></tr>
+    <tr><td>10. HTTP response → Frontend</td><td>1ms</td><td>1ms</td><td>1ms</td><td>1ms</td></tr>
+    <tr><td>11. React re-render</td><td>5ms</td><td>5ms</td><td>5ms</td><td>5ms</td></tr>
+    <tr><td><strong>Total (capture to display)</strong></td><td><strong>~50ms</strong></td><td><strong>~5,244ms*</strong></td><td><strong>~17ms</strong></td><td><strong>~24ms</strong></td></tr>
+  </table>
+  <p style="font-size:.85rem;color:#8b949e">* Voice total includes the 5-second recording time, which happens in parallel with video/other activity. The actual UI update latency after recording completes is ~194ms.</p>
+
+  <h3>Latency Visualisation</h3>
+  <div style="padding:16px 0">
+    <div class="latency-bar"><span class="lbl">Face (excl. capture)</span><div class="bar" style="width:120px;background:#1f6feb"></div><span class="val">~47ms</span></div>
+    <div class="latency-bar"><span class="lbl">Voice (excl. recording)</span><div class="bar" style="width:250px;background:#238636"></div><span class="val">~194ms</span></div>
+    <div class="latency-bar"><span class="lbl">Keystroke</span><div class="bar" style="width:50px;background:#6e40c9"></div><span class="val">~17ms</span></div>
+    <div class="latency-bar"><span class="lbl">Mouse</span><div class="bar" style="width:75px;background:#9e6a03"></div><span class="val">~24ms</span></div>
+    <div class="latency-bar"><span class="lbl">Socket.IO broadcast</span><div class="bar" style="width:10px;background:#da3633"></div><span class="val">&lt;2ms</span></div>
+  </div>
+
+  <h3>System-Wide Performance Summary</h3>
+  <div class="metric-grid">
+    <div class="metric-card"><span class="metric-val">5s</span><span class="metric-lbl">Fastest face update cycle</span></div>
+    <div class="metric-card"><span class="metric-val">&lt;50ms</span><span class="metric-lbl">Face: UI update latency</span></div>
+    <div class="metric-card"><span class="metric-val">&lt;200ms</span><span class="metric-lbl">Voice: UI update latency</span></div>
+    <div class="metric-card"><span class="metric-val">&lt;20ms</span><span class="metric-lbl">Keystroke/Mouse latency</span></div>
+    <div class="metric-card"><span class="metric-val">60s</span><span class="metric-lbl">Max low-trust before lockout</span></div>
+    <div class="metric-card"><span class="metric-val">97–99%</span><span class="metric-lbl">Combined system accuracy</span></div>
+  </div>
+
+  <div class="highlight-box">
+    <h4>✅ Key Architectural Strengths</h4>
+    <ul>
+      <li><strong>Parallel verification</strong>: All 4 modalities run on independent timers — face every 5s, voice every 20s, keystroke+mouse every 10s. No modality blocks another.</li>
+      <li><strong>Graceful degradation</strong>: If any ML service is down, the backend returns confidence=0.5 (neutral). Session continues; trust score is simply computed from remaining modalities.</li>
+      <li><strong>Non-blocking UI</strong>: All biometric capture and API calls are async. Video call quality (WebRTC) is never interrupted by verification activity.</li>
+      <li><strong>Real-time dual-view</strong>: Both doctor and patient see trust scores update in &lt;100ms of a score change, via Socket.IO push.</li>
+      <li><strong>Zero Trust enforcement</strong>: Re-verification happens continuously throughout the entire session — not just at login.</li>
+    </ul>
+  </div>
+</div>
+
+<!-- Close main container -->
+</div>
+
+<footer>
+  <p>Zero Trust Telehealth Platform — Full Technical Reference | Generated 2026 | Confidential</p>
+  <p style="margin-top:6px">ResNet50 · ECAPA-TDNN · Deep MLP · Siamese MLP · Triplet Loss · WebRTC · Socket.IO · FastAPI · Express.js · MongoDB</p>
+</footer>
+
+<script>
+mermaid.initialize({
+  startOnLoad:true,
+  theme:'dark',
+  themeVariables:{
+    darkMode:true,
+    background:'#0d1117',
+    primaryColor:'#161b22',
+    primaryTextColor:'#c9d1d9',
+    primaryBorderColor:'#30363d',
+    lineColor:'#58a6ff',
+    secondaryColor:'#21262d',
+    tertiaryColor:'#0d1117',
+    fontSize:'12px'
+  },
+  flowchart:{htmlLabels:false,curve:'basis',padding:16},
+  sequence:{actorMargin:50,messageMargin:25,mirrorActors:false},
+  securityLevel:'loose'
+});
+</script>
+</body>
+</html>
