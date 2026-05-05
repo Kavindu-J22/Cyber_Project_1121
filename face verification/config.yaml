@@ -6,11 +6,11 @@ model:
   backbone: "resnet50"
   embedding_dim: 128
   pretrained: true
-  checkpoint_path: "models/best_resnet50_triplet.pth"
+  checkpoint_path: "models/best_model.pt"
   
 # Image Processing
 image:
-  face_size: 224
+  face_size: 112
   channels: 3  # RGB
   normalize_mean: [0.485, 0.456, 0.406]  # ImageNet normalization
   normalize_std: [0.229, 0.224, 0.225]
@@ -20,7 +20,7 @@ image:
 # Face Verification
 verification:
   similarity_metric: "cosine"  # cosine, euclidean
-  threshold: 0.8096            # Default threshold from training
+  threshold: 0.78              # Raw cosine similarity threshold for best_model.pt
   high_security_threshold: 0.85
   balanced_threshold: 0.78
   lenient_threshold: 0.70

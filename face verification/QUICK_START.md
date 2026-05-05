@@ -8,8 +8,10 @@
 # Navigate to face verification folder
 cd "face verification"
 
+.\.venv\Scripts\Activate.ps1
+
 # Place your model file here:
-# face verification/models/best_resnet50_triplet.pth
+# face verification/models/best_model.pt
 ```
 
 **Important**: The API will NOT start without this file!
@@ -70,7 +72,7 @@ curl http://localhost:8004/health
 #   "status": "healthy",
 #   "model_loaded": true,
 #   "device": "cpu",
-#   "threshold": 0.8096
+#   "threshold": 0.78
 # }
 ```
 
@@ -104,7 +106,7 @@ curl -X POST http://localhost:8004/api/verify \
 ```json
 {
   "similarity": 0.8542,
-  "threshold": 0.8096,
+  "threshold": 0.78,
   "decision": "MATCH",
   "device": "cpu"
 }
@@ -118,7 +120,7 @@ curl -X POST http://localhost:8004/api/verify \
 ```
 Error: Model checkpoint not found
 ```
-**Solution**: Place `best_resnet50_triplet.pth` in `models/` folder
+**Solution**: Place `best_model.pt` in `models/` folder
 
 ### Problem: Port Already in Use
 ```
@@ -183,11 +185,11 @@ Edit `config.yaml` to customize:
 # Model settings
 model:
   embedding_dim: 128
-  checkpoint_path: "models/best_resnet50_triplet.pth"
+  checkpoint_path: "models/best_model.pt"
 
 # Verification threshold
 verification:
-  threshold: 0.8096  # Adjust based on security needs
+  threshold: 0.78  # Adjust based on security needs
   
 # API settings
 api:

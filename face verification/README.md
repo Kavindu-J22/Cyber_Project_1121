@@ -24,7 +24,7 @@ Face verification module using **ResNet50 with Triplet Loss** for continuous aut
 Input Image (RGB)
     ↓
 [Preprocessing Pipeline]
-  - Resize to 224×224
+  - Resize to 112×112
   - ImageNet Normalization
     ↓
 [ResNet50 Backbone]
@@ -53,7 +53,7 @@ Match/Mismatch Decision
 - Python 3.8+
 - PyTorch 2.0+
 - CUDA (optional, for GPU acceleration)
-- Trained model file: `best_resnet50_triplet.pth`
+- Trained model file: `best_model.pt`
 
 ### Installation
 
@@ -62,7 +62,7 @@ Match/Mismatch Decision
 pip install -r requirements.txt
 
 # Place your trained model
-# models/best_resnet50_triplet.pth
+# models/best_model.pt
 ```
 
 ### Start API Server
@@ -101,7 +101,7 @@ Response:
   "status": "healthy",
   "model_loaded": true,
   "device": "cpu",
-  "threshold": 0.8096
+  "threshold": 0.78
 }
 ```
 
@@ -135,7 +135,7 @@ Content-Type: multipart/form-data
 Form Data:
 - user_id: string
 - face_sample: file (face image)
-- threshold: float (optional, default: 0.8096)
+- threshold: float (optional, default: 0.78)
 
 Response:
 {
@@ -143,7 +143,7 @@ Response:
   "data": {
     "verified": true,
     "confidence_score": 0.87,
-    "threshold": 0.8096,
+    "threshold": 0.78,
     "decision": "MATCH",
     "latency_ms": 280
   }
@@ -163,7 +163,7 @@ Form Data:
 Response:
 {
   "similarity": 0.8542,
-  "threshold": 0.8096,
+  "threshold": 0.78,
   "decision": "MATCH",
   "device": "cpu"
 }
@@ -202,11 +202,11 @@ Edit `config.yaml` to customize settings:
 # Model
 model:
   embedding_dim: 128
-  checkpoint_path: "models/best_resnet50_triplet.pth"
+  checkpoint_path: "models/best_model.pt"
 
 # Verification
 verification:
-  threshold: 0.8096  # Adjust based on security needs
+  threshold: 0.78  # Adjust based on security needs
   enrollment_samples: 3
 
 # API
@@ -227,11 +227,11 @@ performance:
 |-----------|-------|
 | **Architecture** | ResNet50 + Triplet Loss |
 | **Embedding Dimension** | 128 |
-| **Input Size** | 224×224×3 (RGB) |
+| **Input Size** | 112×112×3 (RGB) |
 | **Normalization** | ImageNet (mean/std) |
 | **Similarity Metric** | Cosine Similarity |
-| **Default Threshold** | 0.8096 |
-| **Model Size** | ~90-100 MB |
+| **Default Threshold** | 0.78 |
+| **Model Size** | ~296 MB |
 
 ---
 
@@ -290,7 +290,7 @@ curl -X POST http://localhost:8004/api/verify \
 
 ### Model Not Found
 ```
-Error: Model checkpoint not found: models/best_resnet50_triplet.pth
+Error: Model checkpoint not found: models/best_model.pt
 ```
 **Solution**: Place your trained model file in the `models/` folder
 
@@ -319,7 +319,7 @@ face verification/
 ├── start_api.sh               # Unix launcher
 ├── README.md                  # This file
 ├── models/                    # Model storage
-│   ├── best_resnet50_triplet.pth  # Trained model (place here)
+│   ├── best_model.pt  # Trained model (place here)
 │   └── checkpoints/
 ├── logs/                      # Log files
 ├── src/                       # Source code

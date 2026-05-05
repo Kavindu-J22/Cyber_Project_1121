@@ -16,12 +16,12 @@ class FacePreprocessor:
     MUST match training preprocessing exactly
     """
     
-    def __init__(self, face_size: int = 224):
+    def __init__(self, face_size: int = 112):
         """
         Initialize preprocessor with ImageNet normalization
         
         Args:
-            face_size: Target image size (default: 224 for ResNet)
+            face_size: Target image size (default: 112 for best_model.pt)
         """
         self.face_size = face_size
         
@@ -193,7 +193,7 @@ if __name__ == "__main__":
     # Test preprocessor
     print("Testing Face Preprocessor...")
     
-    preprocessor = FacePreprocessor(face_size=224)
+    preprocessor = FacePreprocessor(face_size=112)
     
     # Create dummy image
     dummy_image = Image.new('RGB', (300, 300), color='red')

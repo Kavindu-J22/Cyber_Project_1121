@@ -6,7 +6,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torchvision import models
-from typing import Dict, Any
+from collections.abc import Mapping
 
 
 class ResNet50TripletModel(nn.Module):
@@ -15,17 +15,28 @@ class ResNet50TripletModel(nn.Module):
     Outputs L2-normalized embeddings for cosine similarity comparison
     """
     
-    def __init__(self, embedding_dim: int = 128, pretrained: bool = True):
+    def __init__(
+        self,
+        embedding_dim: int = 128,
+        pretrained: bool = True,
+        head_type: str = "mlp",
+        hidden_dim: int = 512,
+        dropout: float = 0.3
+    ):
         """
         Initialize ResNet50 Triplet model
         
         Args:
             embedding_dim: Dimension of output embeddings (default: 128)
             pretrained: Use ImageNet pretrained weights for backbone
+            head_type: Embedding head format ("mlp" for best_model.pt, "fc" for legacy checkpoints)
+            hidden_dim: Hidden dimension used by the MLP embedding head
+            dropout: Dropout probability used by the MLP embedding head
         """
         super(ResNet50TripletModel, self).__init__()
         
         self.embedding_dim = embedding_dim
+        self.head_type = head_type
         
         # Load ResNet50 backbone
         # Use weights parameter instead of deprecated pretrained parameter
@@ -50,9 +61,20 @@ class ResNet50TripletModel(nn.Module):
         # ResNet50 outputs 2048 features before the final FC
         resnet_output_dim = 2048
         
-        # Simple fc layer for embedding (matches checkpoint structure)
-        # The checkpoint has a simple 2048->512 linear layer
-        self.fc = nn.Linear(resnet_output_dim, embedding_dim)
+        if head_type == "mlp":
+            # Matches best_model.pt: head.0/head.1/head.4 keys.
+            self.head = nn.Sequential(
+                nn.Linear(resnet_output_dim, hidden_dim),
+                nn.BatchNorm1d(hidden_dim),
+                nn.ReLU(),
+                nn.Dropout(p=dropout),
+                nn.Linear(hidden_dim, embedding_dim)
+            )
+        elif head_type == "fc":
+            # Legacy checkpoint compatibility: a single fc layer.
+            self.fc = nn.Linear(resnet_output_dim, embedding_dim)
+        else:
+            raise ValueError(f"Unsupported head_type: {head_type}")
         
         # Store actual embedding dim (will be overridden from checkpoint)
         self._actual_embedding_dim = embedding_dim
@@ -62,7 +84,7 @@ class ResNet50TripletModel(nn.Module):
         Forward pass
         
         Args:
-            x: Input tensor of shape (batch_size, 3, 224, 224)
+            x: Input tensor of shape (batch_size, 3, H, W)
             
         Returns:
             L2-normalized embeddings of shape (batch_size, embedding_dim)
@@ -81,8 +103,11 @@ class ResNet50TripletModel(nn.Module):
         x = self.backbone.avgpool(x)
         features = torch.flatten(x, 1)
         
-        # Generate embeddings using fc layer
-        embeddings = self.fc(features)
+        # Generate embeddings using the active checkpoint-compatible head.
+        if self.head_type == "mlp":
+            embeddings = self.head(features)
+        else:
+            embeddings = self.fc(features)
         
         # L2 normalize embeddings
         embeddings = F.normalize(embeddings, p=2, dim=1)
@@ -90,8 +115,66 @@ class ResNet50TripletModel(nn.Module):
         return embeddings
     
     def get_embedding_dim(self) -> int:
-        """Get embedding dimension (actual output dimension of fc layer)"""
+        """Get embedding dimension (actual model output dimension)"""
+        if self.head_type == "mlp":
+            return self.head[-1].out_features
         return self.fc.out_features
+
+
+def _extract_state_dict(checkpoint) -> Mapping:
+    """Extract model weights from supported checkpoint formats."""
+    if isinstance(checkpoint, Mapping):
+        if "model_state_dict" in checkpoint:
+            return checkpoint["model_state_dict"]
+        if "state_dict" in checkpoint:
+            return checkpoint["state_dict"]
+        if "model" in checkpoint:
+            return checkpoint["model"]
+
+        if checkpoint and all(torch.is_tensor(value) for value in checkpoint.values()):
+            return checkpoint
+
+        raise ValueError(
+            "Unsupported checkpoint format. Expected one of: "
+            "'model_state_dict', 'state_dict', 'model', or a raw state dict."
+        )
+
+    raise ValueError(f"Unsupported checkpoint object type: {type(checkpoint).__name__}")
+
+
+def _strip_wrapper_prefixes(state_dict: Mapping) -> dict:
+    """Remove common wrapper prefixes such as DataParallel or torch.compile."""
+    cleaned_state_dict = {}
+    for key, value in state_dict.items():
+        new_key = key
+        for prefix in ("module.", "_orig_mod."):
+            if new_key.startswith(prefix):
+                new_key = new_key[len(prefix):]
+        cleaned_state_dict[new_key] = value
+    return cleaned_state_dict
+
+
+def _detect_head_config(state_dict: Mapping) -> dict:
+    """Detect whether a checkpoint uses the new MLP head or legacy fc head."""
+    if "head.0.weight" in state_dict and "head.4.weight" in state_dict:
+        return {
+            "head_type": "mlp",
+            "hidden_dim": state_dict["head.0.weight"].shape[0],
+            "embedding_dim": state_dict["head.4.weight"].shape[0],
+        }
+
+    if "fc.weight" in state_dict:
+        return {
+            "head_type": "fc",
+            "hidden_dim": None,
+            "embedding_dim": state_dict["fc.weight"].shape[0],
+        }
+
+    head_keys = [key for key in state_dict if key.startswith(("head.", "fc."))]
+    raise ValueError(
+        "Could not detect a supported face embedding head in checkpoint. "
+        f"Found head-like keys: {head_keys[:10]}"
+    )
 
 
 def load_model_checkpoint(
@@ -113,45 +196,24 @@ def load_model_checkpoint(
     # Load checkpoint
     checkpoint = torch.load(checkpoint_path, map_location=device, weights_only=False)
     
-    # Handle different checkpoint formats
-    if isinstance(checkpoint, dict):
-        if 'model_state_dict' in checkpoint:
-            state_dict = checkpoint['model_state_dict']
-        elif 'state_dict' in checkpoint:
-            state_dict = checkpoint['state_dict']
-        else:
-            state_dict = checkpoint
-    else:
-        state_dict = checkpoint
-    
-    # Remove 'module.' prefix if model was saved with DataParallel
-    new_state_dict = {}
-    for key, value in state_dict.items():
-        if key.startswith('module.'):
-            new_key = key[7:]  # Remove 'module.' prefix
-        else:
-            new_key = key
-        new_state_dict[new_key] = value
-    
-    # Detect actual embedding dimension from checkpoint fc layer
-    if 'fc.weight' in new_state_dict:
-        actual_embedding_dim = new_state_dict['fc.weight'].shape[0]
-        print(f"Detected embedding dimension from checkpoint: {actual_embedding_dim}")
-    else:
-        actual_embedding_dim = embedding_dim
+    state_dict = _strip_wrapper_prefixes(_extract_state_dict(checkpoint))
+    head_config = _detect_head_config(state_dict)
+    actual_embedding_dim = head_config["embedding_dim"]
+    print(
+        "Detected face model head: "
+        f"{head_config['head_type']} (embedding_dim={actual_embedding_dim})"
+    )
     
     # Initialize model with correct embedding dimension
-    model = ResNet50TripletModel(embedding_dim=actual_embedding_dim, pretrained=False)
+    model = ResNet50TripletModel(
+        embedding_dim=actual_embedding_dim,
+        pretrained=False,
+        head_type=head_config["head_type"],
+        hidden_dim=head_config["hidden_dim"] or 512
+    )
     
-    # Load state dict
-    missing_keys, unexpected_keys = model.load_state_dict(new_state_dict, strict=False)
-    
-    # Log any issues (mostly for debugging)
-    if missing_keys:
-        print(f"Warning: Missing keys in checkpoint: {missing_keys}")
-    
-    if unexpected_keys:
-        print(f"Warning: Unexpected keys in checkpoint: {unexpected_keys}")
+    # Strict loading prevents silently serving a partially initialized model.
+    model.load_state_dict(state_dict, strict=True)
     
     # Move to device and set to eval mode
     model = model.to(device)
@@ -204,7 +266,7 @@ if __name__ == "__main__":
     model.eval()
     
     # Test forward pass
-    dummy_input = torch.randn(2, 3, 224, 224)
+    dummy_input = torch.randn(2, 3, 112, 112)
     
     with torch.no_grad():
         embeddings = model(dummy_input)

@@ -26,10 +26,10 @@ if errorlevel 1 (
 )
 
 REM Check if model file exists
-if not exist "models\best_resnet50_triplet.pth" (
+if not exist "models\best_model.pt" (
     echo.
     echo WARNING: Model file not found!
-    echo Expected location: models\best_resnet50_triplet.pth
+    echo Expected location: models\best_model.pt
     echo.
     echo Please place your trained model file in the models folder.
     echo.

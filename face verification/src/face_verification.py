@@ -38,14 +38,15 @@ class FaceVerificationEngine:
         logger.info(f"Using device: {self.device}")
         
         # Initialize preprocessor
-        face_size = config.get('image.face_size', 224)
+        face_size = config.get('image.face_size', 112)
         self.preprocessor = FacePreprocessor(face_size=face_size)
         
         # Load model
         self.model = self._load_model()
+        self.embedding_dim = self.model.get_embedding_dim()
         
         # Verification parameters
-        self.threshold = config.get('verification.threshold', 0.8096)
+        self.threshold = config.get('verification.threshold', 0.78)
         self.similarity_metric = config.get('verification.similarity_metric', 'cosine')
         
         # In-memory enrollment storage
@@ -327,22 +328,24 @@ class FaceVerificationEngine:
         # ── Calibrated confidence scoring ────────────────────────────────────
         # Anchor confidence to the match threshold (not the enrollment mean).
         #
-        #   center = threshold - 0.03   (slightly below threshold)
+        #   center = threshold          (raw decision boundary)
         #   scale  = 0.05               (spread: 5% similarity == 1 z-unit)
         #   z      = (similarity - center) / scale
         #   confidence = sigmoid(z)
         #
-        # Concrete examples (threshold = 0.8096 → center ≈ 0.78):
-        #   sim = 0.95 → z ≈ +3.4 → 97 %   (clear match)
-        #   sim = 0.90 → z ≈ +2.4 → 92 %
-        #   sim = 0.85 → z ≈ +1.4 → 80 %
-        #   sim = 0.80 → z ≈ +0.4 → 60 %   (at threshold)
-        #   sim = 0.75 → z ≈ −0.6 → 35 %
-        #   sim = 0.70 → z ≈ −1.6 → 17 %   (impostor / covered camera)
+        # Concrete examples (threshold = 0.78):
+        #   sim = 0.95 -> z = +3.4 -> 97%   (clear match)
+        #   sim = 0.90 -> z = +2.4 -> 92%
+        #   sim = 0.85 -> z = +1.4 -> 80%
+        #   sim = 0.78 -> z =  0.0 -> 50%   (at threshold)
+        #   sim = 0.75 -> z = -0.6 -> 35%
+        #   sim = 0.70 -> z = -1.6 -> 17%   (impostor / covered camera)
         #
         # This approach is robust to enrollment-vs-live distribution shift because
-        # it is anchored to the model's decision boundary, not the enrollment set.
-        center = threshold - 0.03
+        # it is anchored to the model's raw cosine decision boundary, not the
+        # enrollment set. confidence_score >= 0.5 is equivalent to
+        # raw_similarity >= threshold.
+        center = threshold
         scale  = 0.05
         z_max  = (max_similarity  - center) / scale
         z_mean = (mean_similarity - center) / scale
@@ -443,8 +446,16 @@ class FaceVerificationEngine:
             data = pickle.load(f)
         self.enrollments = {}
         for uid, emb_data in data.items():
+            stored_embeddings = np.array(emb_data['embeddings'])
+            stored_dim = stored_embeddings.shape[1] if stored_embeddings.ndim == 2 else None
+            if stored_dim != self.embedding_dim:
+                raise ValueError(
+                    f"Enrollment dimension mismatch for {uid}: "
+                    f"stored={stored_dim}, model={self.embedding_dim}. "
+                    "Regenerate face enrollments for the active model."
+                )
             self.enrollments[uid] = {
-                'embeddings': np.array(emb_data['embeddings']),
+                'embeddings': stored_embeddings,
                 'num_samples': emb_data['num_samples'],
                 'enrollment_time': emb_data['enrollment_time'],
                 'quality_score': emb_data['quality_score'],

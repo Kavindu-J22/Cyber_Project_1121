@@ -26,10 +26,10 @@ if [ $? -ne 0 ]; then
 fi
 
 # Check if model file exists
-if [ ! -f "models/best_resnet50_triplet.pth" ]; then
+if [ ! -f "models/best_model.pt" ]; then
     echo ""
     echo "WARNING: Model file not found!"
-    echo "Expected location: models/best_resnet50_triplet.pth"
+    echo "Expected location: models/best_model.pt"
     echo ""
     echo "Please place your trained model file in the models folder."
     echo ""

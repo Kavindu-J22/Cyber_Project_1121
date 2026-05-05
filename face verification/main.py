@@ -79,9 +79,10 @@ def run_demo(config):
     logger.info("\nDemo: Creating test face embeddings...")
     
     # Create two different colored images to simulate faces
-    face1 = Image.new('RGB', (224, 224), color='red')
-    face2 = Image.new('RGB', (224, 224), color='blue')
-    face3 = Image.new('RGB', (224, 224), color='red')  # Similar to face1
+    face_size = config.get('image.face_size', 112)
+    face1 = Image.new('RGB', (face_size, face_size), color='red')
+    face2 = Image.new('RGB', (face_size, face_size), color='blue')
+    face3 = Image.new('RGB', (face_size, face_size), color='red')  # Similar to face1
     
     # Save temp images
     import tempfile
@@ -146,7 +147,8 @@ def run_test(config):
     from src.face_model import ResNet50TripletModel
     
     logger.info("\n1. Testing preprocessor...")
-    preprocessor = FacePreprocessor(face_size=224)
+    face_size = config.get('image.face_size', 112)
+    preprocessor = FacePreprocessor(face_size=face_size)
     from PIL import Image
     test_image = Image.new('RGB', (300, 300), color='green')
     tensor = preprocessor.preprocess(test_image)

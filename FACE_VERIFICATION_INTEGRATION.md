@@ -21,10 +21,10 @@ Successfully integrated Face Verification as the 4th biometric modality into the
   - `src/api.py` - FastAPI endpoints
   - `src/config_loader.py` - Config management
   - `src/face_model.py` - ResNet50 architecture
-  - `src/face_preprocessing.py` - Image preprocessing (224×224, ImageNet normalization)
+  - `src/face_preprocessing.py` - Image preprocessing (112×112, ImageNet normalization)
   - `src/face_verification.py` - Enrollment & verification engine
   - `src/__init__.py` - Module initialization
-  - `models/` - Directory for trained model (place `best_resnet50_triplet.pth` here)
+  - `models/` - Directory for trained model (place `best_model.pt` here)
   - `logs/` - Log files directory
   - `temp/` - Temporary files directory
 
@@ -75,7 +75,7 @@ Content-Type: multipart/form-data
 Form Data:
 - user_id: string
 - face_sample: file
-- threshold: float (optional, default: 0.8096)
+- threshold: float (optional, default: 0.78)
 ```
 
 #### Direct Comparison
@@ -95,7 +95,7 @@ Form Data:
 
 ### 1. Place Your Trained Model
 ```
-face verification/models/best_resnet50_triplet.pth
+face verification/models/best_model.pt
 ```
 The model file should be approximately 90-100 MB (ResNet50 checkpoint).
 
@@ -135,7 +135,7 @@ Expected response:
   "status": "healthy",
   "model_loaded": true,
   "device": "cpu",
-  "threshold": 0.8096
+  "threshold": 0.78
 }
 ```
 
@@ -146,11 +146,11 @@ Expected response:
 | Parameter | Value |
 |-----------|-------|
 | **Architecture** | ResNet50 + Triplet Loss |
-| **Input Size** | 224×224×3 (RGB) |
+| **Input Size** | 112×112×3 (RGB) |
 | **Preprocessing** | ImageNet normalization |
 | **Embedding Dimension** | 128 |
 | **Similarity Metric** | Cosine Similarity |
-| **Default Threshold** | 0.8096 |
+| **Default Threshold** | 0.78 |
 | **Enrollment Samples** | 3 (recommended) |
 
 ---
@@ -159,7 +159,7 @@ Expected response:
 
 1. **User Registration**: Doctor fills personal & professional info
 2. **Face Capture**: System captures 3 face samples via webcam
-3. **Preprocessing**: Images resized to 224×224 with ImageNet normalization
+3. **Preprocessing**: Images resized to 112×112 with ImageNet normalization
 4. **Enrollment**: Face samples sent to `/api/v1/enroll`
 5. **Embedding**: ResNet50 generates 128-D embeddings (L2-normalized)
 6. **Storage**: User profile stored with `faceEnrolled: true`
@@ -172,8 +172,8 @@ Expected response:
 2. **Extract Face**: Crop and preprocess face image
 3. **Verify**: Send to `/api/v1/verify` endpoint
 4. **Decision**: Compare with enrolled embeddings
-   - Similarity ≥ 0.8096 → **MATCH**
-   - Similarity < 0.8096 → **MISMATCH**
+   - Similarity ≥ 0.78 → **MATCH**
+   - Similarity < 0.78 → **MISMATCH**
 5. **Update Trust Score**: Adjust session trust based on confidence
 6. **Alert**: Trigger alert if confidence drops below threshold
 
@@ -223,7 +223,7 @@ Edit `face verification/config.yaml` to customize:
 ```yaml
 # Verification threshold (adjust based on security needs)
 verification:
-  threshold: 0.8096  # Default
+  threshold: 0.78  # Default
   high_security_threshold: 0.85  # Stricter
   balanced_threshold: 0.78  # Balanced
   lenient_threshold: 0.70  # Lenient
@@ -239,7 +239,7 @@ performance:
 
 ### Model Not Found
 ```
-Error: Model checkpoint not found: models/best_resnet50_triplet.pth
+Error: Model checkpoint not found: models/best_model.pt
 ```
 **Solution**: Place your trained model file in the `models/` folder
 
@@ -280,7 +280,7 @@ All 4 modalities work together to provide multi-factor continuous authentication
 
 ## ✨ Next Steps
 
-1. ✅ Place your trained model (`best_resnet50_triplet.pth`) in `models/` folder
+1. ✅ Place your trained model (`best_model.pt`) in `models/` folder
 2. ✅ Install dependencies: `pip install -r requirements.txt`
 3. ✅ Test the service: `python main.py test`
 4. ✅ Start all services: `start-all-services.bat`
