@@ -1,0 +1,3 @@
+image_a,image_b,label,score,prediction
+C:\Users\hivin\Desktop\Cyber_Project_1121\face verification\Dataset\person2\0001_01.jpg,C:\Users\hivin\Desktop\Cyber_Project_1121\face verification\Dataset\person2\0077_01.jpg,1,0.9754638671875,1
+C:\Users\hivin\Desktop\Cyber_Project_1121\face verification\Dataset\person1\32269.JPG,C:\Users\hivin\Desktop\Cyber_Project_1121\face verification\Dataset\person2\0001_01.jpg,0,0.9794442057609558,1

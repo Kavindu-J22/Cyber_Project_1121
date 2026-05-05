@@ -1,0 +1,3 @@
+﻿image_a,image_b,label
+Dataset/person2/0001_01.jpg,Dataset/person2/0077_01.jpg,1
+Dataset/person1/32269.JPG,Dataset/person2/0001_01.jpg,0

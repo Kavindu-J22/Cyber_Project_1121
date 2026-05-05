@@ -358,3 +358,5 @@ This module integrates with the Zero Trust Telehealth Platform:
 ## 📝 License
 
 Part of Zero Trust Telehealth Platform
+
+.\.venv\Scripts\Activate.ps1

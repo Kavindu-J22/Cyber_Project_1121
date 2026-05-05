@@ -22,10 +22,15 @@ python-dotenv>=1.0.0
 # Data Processing
 numpy>=1.24.0
 pandas>=2.0.0
+scikit-learn>=1.3.0
 
 # API & Networking
 aiofiles>=23.0.0
 httpx>=0.24.0
+
+# Evaluation & Visualization
+matplotlib>=3.7.0
+seaborn>=0.12.0
 
 # Monitoring (Optional)
 prometheus-client>=0.17.0

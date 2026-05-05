@@ -1,0 +1,31 @@
+{
+  "threshold": 0.8096,
+  "accuracy": 0.5,
+  "precision": 0.5,
+  "recall": 0.9490740740740741,
+  "specificity": 0.05092592592592592,
+  "far": 0.9490740740740741,
+  "frr": 0.05092592592592592,
+  "eer": 0.5,
+  "eer_threshold": 0.9497935175895691,
+  "confusion_matrix": {
+    "tn": 22,
+    "fp": 410,
+    "fn": 22,
+    "tp": 410,
+    "matrix_2x2": [
+      [
+        22,
+        410
+      ],
+      [
+        22,
+        410
+      ]
+    ]
+  },
+  "num_pairs": 864,
+  "num_identities": 54,
+  "num_genuine": 432,
+  "num_impostor": 432
+}
